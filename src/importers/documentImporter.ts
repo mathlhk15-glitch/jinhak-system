@@ -1,4 +1,5 @@
 import { parseTranscriptText, type ParsedTranscriptRecord } from "./transcriptParser";
+import { parseOfficialTranscriptPositionedPages, type PositionedPdfPage } from "./officialPdfParser";
 
 export interface ImportProgress { stage: string; percent?: number; }
 export interface DocumentImportResult {
@@ -105,18 +106,40 @@ export function injectSemesterByGeometry(lines: PositionedTextLine[]): string[] 
   });
 }
 
-async function extractPdfText(file: File, onProgress?: (p: ImportProgress) => void): Promise<{ pdf: any; text: string }> {
+async function extractPdfText(
+  file: File,
+  onProgress?: (p: ImportProgress) => void
+): Promise<{ pdf: any; text: string; positionedPages: PositionedPdfPage[] }> {
   const pdfjs = await loadPdfJs();
   const bytes = new Uint8Array(await file.arrayBuffer());
   const pdf = await pdfjs.getDocument({ data: bytes }).promise;
   const pages: string[] = [];
+  const positionedPages: PositionedPdfPage[] = [];
   for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
     onProgress?.({ stage: `PDF 텍스트 읽는 중 (${pageNo}/${pdf.numPages})`, percent: Math.round((pageNo / pdf.numPages) * 40) });
     const page = await pdf.getPage(pageNo);
+    const viewport = page.getViewport({ scale: 1 });
     const content = await page.getTextContent();
-    pages.push(injectSemesterByGeometry(groupTextItemsIntoLines(content.items ?? [])).join("\n"));
+    const positionedItems = (content.items ?? [])
+      .map((item: any) => ({
+        x: Number(item.transform?.[4] ?? 0),
+        // PDF.js의 transform[5]는 아래에서 위로 증가한다. 화면의 위→아래 좌표로 변환한다.
+        top: Number(viewport.height) - Number(item.transform?.[5] ?? 0),
+        text: String(item.str ?? "").trim(),
+      }))
+      .filter((item: any) => item.text.length > 0);
+    positionedPages.push({
+      pageNumber: pageNo,
+      width: Number(viewport.width),
+      height: Number(viewport.height),
+      items: positionedItems,
+    });
+
+    // rawText는 디버깅/일반 PDF fallback용이다. 실제 학교생활기록부 성적은
+    // positionedPages의 표 좌표 파서가 우선 처리한다.
+    pages.push(groupTextItemsIntoLines(content.items ?? []).map((line) => line.text).join("\n"));
   }
-  return { pdf, text: pages.join("\n") };
+  return { pdf, text: pages.join("\n"), positionedPages };
 }
 
 async function createOcrWorker(onProgress?: (p: ImportProgress) => void): Promise<any> {
@@ -167,10 +190,13 @@ async function ocrPdf(pdf: any, onProgress?: (p: ImportProgress) => void): Promi
 export async function importTranscriptDocument(file: File, onProgress?: (p: ImportProgress) => void): Promise<DocumentImportResult> {
   onProgress?.({ stage: "파일 확인 중", percent: 2 });
   if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-    const { pdf, text } = await extractPdfText(file, onProgress);
+    const { pdf, text, positionedPages } = await extractPdfText(file, onProgress);
     if (text.replace(/\s/g, "").length >= 120) {
-      const parsed = parseTranscriptText(text);
-      onProgress?.({ stage: "PDF 성적 분석 완료", percent: 100 });
+      // 텍스트형 학교생활기록부는 일반 문장 파싱보다 표의 x/y 좌표를 우선한다.
+      // 봉사활동 날짜를 과목으로 오인하거나 rowspan 학기 셀 때문에 2학기가 사라지는 문제를 차단한다.
+      const official = parseOfficialTranscriptPositionedPages(positionedPages);
+      const parsed = official.records.length > 0 ? official : parseTranscriptText(text);
+      onProgress?.({ stage: official.records.length > 0 ? "학생부 성적표 정밀 분석 완료" : "PDF 성적 분석 완료", percent: 100 });
       return { records: parsed.records, rawText: text, warnings: parsed.warnings, method: "pdf-text" };
     }
     onProgress?.({ stage: "텍스트가 없는 PDF입니다. OCR로 전환합니다.", percent: 42 });

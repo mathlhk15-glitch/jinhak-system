@@ -141,7 +141,7 @@ export function mountApp(root: HTMLElement): void {
 
   root.appendChild(
     el("p", { class: "footer-note" }, [
-      "창원경일고 학생부 내신분석 시스템 · 성적 데이터는 서버로 전송되지 않고 이 기기와 내려받은 JSON 파일에만 저장됩니다.",
+      "창원경일고 학생부 성적분석 시스템 · 성적 데이터는 서버로 전송되지 않고 이 기기와 내려받은 JSON 파일에만 저장됩니다.",
     ])
   );
 }
@@ -201,9 +201,9 @@ function renderMasthead(): HTMLElement {
   return el("header", { class: "masthead" }, [
     el("div", { class: "masthead-titles" }, [
       el("div", { class: "eyebrow" }, ["CHANGWON GYEONGIL H.S."]),
-      el("h1", {}, ["학생부 내신분석 시스템"]),
-      el("div", { class: "subtitle" }, ["1·2·3학년 학생부 내신 · 단위수 가중 · 5→9등급 참고환산"]),
-      el("div", { class: "version-badge" }, ["v1.3.0 · 학생부 PDF 정밀인식 · 5개 학기 분석"]),
+      el("h1", {}, ["학생부 성적분석 시스템"]),
+      el("div", { class: "subtitle" }, ["1·2·3학년 학생부 성적 · 단위수 가중평균 · 5→9등급 참고환산"]),
+      el("div", { class: "version-badge" }, ["v1.4.0 · 공식 학생부 표 정밀인식 · 5개 학기 검증"]),
     ]),
   ]);
 }
@@ -379,6 +379,22 @@ function renderImportSection(): HTMLElement {
   }
 
   if (importCandidates.length > 0) {
+    const recognitionSummary = el("div", { class: "recognition-summary" });
+    recognitionSummary.appendChild(el("strong", {}, ["자동인식 학기별 확인"]));
+    for (const period of COUNSELING_SEMESTERS) {
+      const periodRecords = importCandidates.filter(
+        (candidate) => candidate.gradeLevel === period.gradeLevel && candidate.semester === period.semester
+      );
+      const rankCount = periodRecords.filter((candidate) => candidate.evaluationType === "rankGrade").length;
+      const achievementCount = periodRecords.filter((candidate) => candidate.evaluationType === "achievement").length;
+      recognitionSummary.appendChild(
+        el("span", { class: rankCount > 0 ? "recognition-chip" : "recognition-chip missing" }, [
+          `${period.label} · 등급 ${rankCount}건${achievementCount > 0 ? ` · 성취 ${achievementCount}건` : ""}`,
+        ])
+      );
+    }
+    section.appendChild(recognitionSummary);
+
     const tableWrap = el("div", { class: "table-scroll import-review" });
     const table = el("table", { class: "ledger" });
     table.appendChild(
@@ -502,7 +518,7 @@ function renderImportSection(): HTMLElement {
 
     const applyMode = el("select", {}) as HTMLSelectElement;
     applyMode.append(
-      el("option", { value: "replace" }, ["기존 성적을 자동추출 성적으로 대체"]) as HTMLOptionElement,
+      el("option", { value: "replace" }, ["기존 성적 전체를 이번 자동추출 결과로 대체(권장)"]) as HTMLOptionElement,
       el("option", { value: "append" }, ["기존 성적에 추가(중복은 제외)"]) as HTMLOptionElement
     );
     const applyBtn = el("button", { class: "btn primary", type: "button" }, ["검토한 성적 반영"]);
@@ -607,7 +623,7 @@ function renderGradeSection(): HTMLElement {
     el("h2", {}, [el("span", { class: "section-number" }, ["01"]), "성적 입력 (교과군별 단위수 · 등급)"]),
     el("p", { class: "card-desc" }, [
       "교과군마다 이수한 과목 수만큼 '입력 추가'를 눌러 단위수와 등급을 입력하세요. ",
-      "석차등급이 아닌 성취평가(A~E) 과목은 유형을 '성취평가'로 바꾸면 평균 계산에서 자동으로 제외되고 별도로 표시됩니다. ",
+      "등급이 산출되지 않는 성취평가(A~E) 과목은 유형을 '성취평가'로 바꾸면 평균 계산에서 자동으로 제외되고 별도로 표시됩니다. ",
       "각 입력행에서 이수 학기를 선택하면 학기별·전체 가중평균에 자동 반영됩니다. ",
       `${getCurrentAcademicYear()}학년도 ${getStudentCurrentGrade()}학년은 코호트 정책에 따라 ${getCohortPolicy(getCurrentAcademicYear(), getStudentCurrentGrade()).gradeScale}등급제가 기본값입니다. 5등급제 평균은 제공된 환산표 기준 9등급 참고값을 함께 표시합니다.`,
     ])
@@ -954,7 +970,7 @@ function renderGradeSummaryInto(container: HTMLElement): void {
   container.appendChild(
     el("p", { class: "achievement-note" }, [
       semesterAware.length > 0
-        ? "전체 값은 인식된 모든 석차등급 산출과목을 합쳐 Σ(단위수×등급)÷Σ단위수로 다시 계산합니다. 5개 학기가 모두 인식된 경우에만 ‘5개 학기’ 전체값으로 볼 수 있습니다. 5등급제 결과는 제공된 Excel 환산표의 근사 VLOOKUP 방식으로 9등급 참고값을 함께 표시합니다."
+        ? "전체 값은 인식된 모든 등급 산출과목을 합쳐 Σ(단위수×등급)÷Σ단위수로 다시 계산합니다. 5개 학기가 모두 인식된 경우에만 ‘5개 학기’ 전체값으로 볼 수 있습니다. 5등급제 결과는 제공된 Excel 환산표의 근사 VLOOKUP 방식으로 9등급 참고값을 함께 표시합니다."
         : "아직 학기 정보가 있는 성적이 없습니다. PDF/사진에서 성적을 불러오거나 수동 입력행의 ‘이수 학기’를 선택하면 위 표가 자동으로 채워집니다.",
     ])
   );

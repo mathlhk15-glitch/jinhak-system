@@ -98,25 +98,6 @@ body {
   margin-top: 4px;
 }
 
-.seal {
-  min-width: 82px;
-  height: 34px;
-  padding: 0 12px;
-  border: 2px solid var(--accent);
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-body);
-  font-weight: 800;
-  font-size: 12px;
-  color: var(--accent);
-  flex-shrink: 0;
-  line-height: 1;
-  text-align: center;
-  white-space: nowrap;
-  letter-spacing: 0.04em;
-}
 
 /* ── 학생 프로필 바 ───────────────────────────────────── */
 
@@ -577,9 +558,6 @@ table.ledger tr.combo-row td {
     flex-direction: column;
     align-items: flex-start;
   }
-  .seal {
-    display: none;
-  }
   table.ledger {
     font-size: 12px;
   }
@@ -761,4 +739,34 @@ table.ledger tr.combo-row td {
   font-size: 0.76rem;
   font-weight: 700;
   white-space: nowrap;
+}
+
+/* v1.4.0 - PDF 자동인식 결과를 반영 전에 학기별로 즉시 검증 */
+.recognition-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin: 12px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.55);
+}
+.recognition-summary strong {
+  margin-right: 4px;
+  font-size: 12px;
+}
+.recognition-chip {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(36, 79, 73, 0.09);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.recognition-chip.missing {
+  background: rgba(139, 94, 34, 0.10);
+  color: #8b5e22;
 }

@@ -67,7 +67,7 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
   // ExcelJS는 번들이 크므로(약 900KB) "Excel 생성" 버튼을 누를 때만 동적으로 불러온다.
   const { default: ExcelJSModule } = await import("exceljs");
   const wb = new ExcelJSModule.Workbook();
-  wb.creator = "창원경일고 학생부 내신분석 시스템";
+  wb.creator = "창원경일고 학생부 성적분석 시스템";
   wb.created = new Date();
 
   const overall = computeBySubjectGroup(data.academicRecords);
