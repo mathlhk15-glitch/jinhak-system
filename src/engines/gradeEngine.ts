@@ -32,6 +32,8 @@ export interface InvalidCourseInfo {
 
 export interface WeightedAverageResult {
   average: ComputedValue;
+  /** 계산에 실제 사용된 석차등급 체계. 데이터 없음/혼재 시 null */
+  gradeScale: 5 | 9 | null;
   totalCredits: number;
   courseCount: number;
   /** 계산에 포함된 과목 목록 (근거 표시용) */
@@ -123,6 +125,7 @@ export function computeWeightedAverage(records: AcademicRecord[]): WeightedAvera
   if (mixedGradeScaleWarning) {
     return {
       average: EMPTY,
+      gradeScale: null,
       totalCredits: rankGradeCourses.reduce((sum, r) => sum + r.credits, 0),
       courseCount: 0,
       includedCourses: [],
@@ -143,9 +146,11 @@ export function computeWeightedAverage(records: AcademicRecord[]): WeightedAvera
   }
 
   const average = creditSum > 0 ? value(scoreSum / creditSum) : EMPTY;
+  const activeScale = scalesUsed.size === 1 ? ([...scalesUsed][0] as 5 | 9) : null;
 
   return {
     average,
+    gradeScale: activeScale,
     totalCredits: creditSum,
     courseCount: included.length,
     includedCourses: included,

@@ -16,6 +16,7 @@ import { REFERENCE_COMBINATIONS } from "../models/subjectCombinations";
 import { computeSemesterCombinationMatrix, getSemesterAwareRecords } from "../engines/semesterAnalysis";
 import { computeBySubjectGroup, computeCombination, computeWeightedAverage, getActiveGradeScale, isEmpty } from "../engines/gradeEngine";
 import type { ComputedValue } from "../engines/gradeEngine";
+import { convertFiveGradeAverageToNine, convertWeightedAverageToNine } from "../engines/gradeConversion";
 import { prepareForExport } from "../storage/jsonBackup";
 
 const HEADER_FILL: ExcelJS.Fill = {
@@ -84,9 +85,9 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
   // ── 01_상담요약 ─────────────────────────────────────────
   {
     const ws = wb.addWorksheet("01_상담요약", { views: [{ showGridLines: false }] });
-    ws.columns = [{ width: 26 }, { width: 20 }, { width: 40 }];
+    ws.columns = [{ width: 30 }, { width: 16 }, { width: 16 }, { width: 42 }];
 
-    ws.mergeCells("A1:C1");
+    ws.mergeCells("A1:D1");
     const title = ws.getCell("A1");
     title.value = "창원경일고 진학설계 — 상담 요약";
     title.font = { size: 16, bold: true, color: { argb: "FF1F3B57" } };
@@ -100,7 +101,7 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
     ws.getCell("B5").value = new Date().toLocaleString("ko-KR");
 
     const summaryHeaderRow = ws.getRow(7);
-    summaryHeaderRow.values = ["지표", "값", "비고"];
+    summaryHeaderRow.values = ["지표", "원등급", "9등급 환산", "비고"];
     styleHeaderRow(summaryHeaderRow);
 
     let r = 8;
@@ -108,7 +109,8 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
       const row = ws.getRow(r);
       row.getCell(1).value = "석차등급 산출과목 전교과 가중평균";
       writeGradeCell(row.getCell(2), comboAll.average);
-      row.getCell(3).value = `${comboAll.courseCount}과목 / ${comboAll.totalCredits}단위`;
+      writeGradeCell(row.getCell(3), convertWeightedAverageToNine(comboAll));
+      row.getCell(4).value = `${comboAll.courseCount}과목 / ${comboAll.totalCredits}단위`;
       styleDataRow(row);
       r += 1;
     }
@@ -116,7 +118,8 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
       const row = ws.getRow(r);
       row.getCell(1).value = `${c.def.label} 가중평균 (참고용 조합)`;
       writeGradeCell(row.getCell(2), c.result.average);
-      row.getCell(3).value = `${c.result.courseCount}과목 / ${c.result.totalCredits}단위`;
+      writeGradeCell(row.getCell(3), convertWeightedAverageToNine(c.result));
+      row.getCell(4).value = `${c.result.courseCount}과목 / ${c.result.totalCredits}단위`;
       styleDataRow(row);
       r += 1;
     }
@@ -126,14 +129,15 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
     ws.getCell(`A${r}`).font = { bold: true };
     r += 1;
     const groupHeaderRow = ws.getRow(r);
-    groupHeaderRow.values = ["교과군", "가중평균", "단위수/과목수"];
+    groupHeaderRow.values = ["교과군", "가중평균(원등급)", "9등급 환산", "단위수/과목수"];
     styleHeaderRow(groupHeaderRow);
     r += 1;
     for (const g of overall) {
       const row = ws.getRow(r);
       row.getCell(1).value = g.subjectGroup;
       writeGradeCell(row.getCell(2), g.result.average);
-      row.getCell(3).value = `${g.result.totalCredits}단위 / ${g.result.courseCount}과목`;
+      writeGradeCell(row.getCell(3), convertWeightedAverageToNine(g.result));
+      row.getCell(4).value = `${g.result.totalCredits}단위 / ${g.result.courseCount}과목`;
       styleDataRow(row);
       r += 1;
     }
@@ -218,6 +222,7 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
       { header: "평가유형", key: "evaluationType", width: 12 },
       { header: "석차등급", key: "rankGrade", width: 10 },
       { header: "등급체계", key: "gradeScale", width: 10 },
+      { header: "9등급 환산(참고)", key: "convertedNine", width: 16 },
       { header: "성취도", key: "achievement", width: 10 },
       { header: "비고", key: "memo", width: 24 },
     ];
@@ -246,6 +251,12 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
         evaluationType: typeLabel[rec.evaluationType] ?? rec.evaluationType,
         rankGrade: rec.rankGrade ?? "",
         gradeScale: rec.gradeScale ? `${rec.gradeScale}등급제` : "",
+        convertedNine:
+          rec.evaluationType === "rankGrade" && rec.rankGrade != null && rec.gradeScale === 5
+            ? convertFiveGradeAverageToNine(rec.rankGrade) ?? ""
+            : rec.evaluationType === "rankGrade" && rec.rankGrade != null && rec.gradeScale === 9
+              ? rec.rankGrade
+              : "",
         achievement: rec.achievement ?? "",
         memo: rec.memo ?? "",
       });
@@ -259,9 +270,9 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
   // ── 03_성적분석 ─────────────────────────────────────────
   {
     const ws = wb.addWorksheet("03_성적분석");
-    ws.columns = [{ width: 30 }, { width: 16 }, { width: 40 }];
+    ws.columns = [{ width: 30 }, { width: 16 }, { width: 16 }, { width: 42 }];
     const headerRow = ws.getRow(1);
-    headerRow.values = ["구분", "가중평균", "산출근거"];
+    headerRow.values = ["구분", "가중평균(원등급)", "9등급 환산", "산출근거"];
     styleHeaderRow(headerRow);
 
     let r = 2;
@@ -269,7 +280,8 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
       const row = ws.getRow(r);
       row.getCell(1).value = `${g.subjectGroup} (석차등급 산출과목)`;
       writeGradeCell(row.getCell(2), g.result.average);
-      row.getCell(3).value = `Σ(단위수×등급)÷Σ단위수, ${g.result.courseCount}과목/${g.result.totalCredits}단위`;
+      writeGradeCell(row.getCell(3), convertWeightedAverageToNine(g.result));
+      row.getCell(4).value = `Σ(단위수×등급)÷Σ단위수, ${g.result.courseCount}과목/${g.result.totalCredits}단위`;
       styleDataRow(row);
       r += 1;
       if (g.result.excludedAchievementCourses.length > 0) {
@@ -278,7 +290,7 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
           .join(", ");
         const noteRow = ws.getRow(r);
         noteRow.getCell(1).value = "  └ 성취평가 과목(평균 제외)";
-        noteRow.getCell(3).value = names;
+        noteRow.getCell(4).value = names;
         styleDataRow(noteRow);
         r += 1;
       }
@@ -286,14 +298,15 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
 
     r += 1;
     const comboHeaderRow = ws.getRow(r);
-    comboHeaderRow.values = ["참고용 교과 조합", "가중평균", "산출근거"];
+    comboHeaderRow.values = ["참고용 교과 조합", "가중평균(원등급)", "9등급 환산", "산출근거"];
     styleHeaderRow(comboHeaderRow);
     r += 1;
     for (const c of combos) {
       const row = ws.getRow(r);
       row.getCell(1).value = c.def.label;
       writeGradeCell(row.getCell(2), c.result.average);
-      row.getCell(3).value = `${c.result.courseCount}과목/${c.result.totalCredits}단위`;
+      writeGradeCell(row.getCell(3), convertWeightedAverageToNine(c.result));
+      row.getCell(4).value = `${c.result.courseCount}과목/${c.result.totalCredits}단위`;
       styleDataRow(row);
       r += 1;
     }
@@ -301,7 +314,8 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
       const row = ws.getRow(r);
       row.getCell(1).value = "전교과(석차등급 산출과목)";
       writeGradeCell(row.getCell(2), comboAll.average);
-      row.getCell(3).value = `${comboAll.courseCount}과목/${comboAll.totalCredits}단위`;
+      writeGradeCell(row.getCell(3), convertWeightedAverageToNine(comboAll));
+      row.getCell(4).value = `${comboAll.courseCount}과목/${comboAll.totalCredits}단위`;
       styleDataRow(row);
       r += 1;
     }
@@ -313,7 +327,12 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
       ws.getCell(`A${r}`).font = { bold: true, size: 12 };
       r += 1;
       const semesterHeader = ws.getRow(r);
-      semesterHeader.values = ["학기", ...REFERENCE_COMBINATIONS.map((c) => c.label), "전교과"];
+      const semesterHeaders: string[] = ["학기"];
+      for (const combo of REFERENCE_COMBINATIONS) {
+        semesterHeaders.push(`${combo.label}(원)`, `${combo.label}(9환산)`);
+      }
+      semesterHeaders.push("전교과(원)", "전교과(9환산)");
+      semesterHeader.values = semesterHeaders;
       styleHeaderRow(semesterHeader);
       r += 1;
       const matrix = computeSemesterCombinationMatrix(data.academicRecords, REFERENCE_COMBINATIONS);
@@ -322,10 +341,13 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
         row.getCell(1).value = item.label;
         let col = 2;
         for (const combo of REFERENCE_COMBINATIONS) {
-          writeGradeCell(row.getCell(col), item.combinations[combo.id].average);
-          col += 1;
+          const result = item.combinations[combo.id];
+          writeGradeCell(row.getCell(col), result.average);
+          writeGradeCell(row.getCell(col + 1), convertWeightedAverageToNine(result));
+          col += 2;
         }
         writeGradeCell(row.getCell(col), item.allSubjects.average);
+        writeGradeCell(row.getCell(col + 1), convertWeightedAverageToNine(item.allSubjects));
         styleDataRow(row);
         if (item.semester == null) row.font = { bold: true };
         r += 1;
@@ -338,6 +360,7 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
     r += 1;
     ws.getCell(`A${r}`).value =
       `등급체계: ${activeGradeScale != null ? `${activeGradeScale}등급제 기준` : "혼재 또는 판정 불가"}. 성취평가 과목은 위 모든 가중평균 계산에서 제외되었습니다. ` +
+      `5등급제의 9등급 환산값은 제공된 Excel의 근사 VLOOKUP 환산표를 그대로 적용한 상담용 참고값이며 대학별 공식 환산식이 아닙니다. ` +
       `"참고용 교과 조합"은 아직 특정 대학의 확정된 반영규칙이 아닙니다.`;
     ws.getCell(`A${r}`).font = { italic: true, size: 9, color: { argb: "FF666666" } };
   }

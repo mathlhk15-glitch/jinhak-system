@@ -723,3 +723,42 @@ table.ledger tr.combo-row td {
   border: 2px solid #8b6f3d;
   box-shadow: 0 8px 24px rgba(91, 68, 34, 0.08);
 }
+
+/* v1.2.0 — 원등급 + 9등급 환산을 같은 결과 셀에서 함께 표시 */
+.grade-pair {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.grade-pair-raw {
+  font-weight: 700;
+}
+.grade-pair-converted,
+.converted-grade-cell {
+  color: #6d5327;
+  font-weight: 700;
+}
+.grade-pair-converted {
+  font-size: 0.78rem;
+}
+
+@media (max-width: 760px) {
+  .grade-pair {
+    align-items: flex-start;
+  }
+}
+.entry-conversion-hint {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(139, 111, 61, 0.10);
+  color: #6d5327;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}

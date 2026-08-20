@@ -1,5 +1,5 @@
 /**
- * 3학년 빠른 상담모드 UI.
+ * 1·2·3학년 통합 상담 UI (기존 파일명은 하위호환을 위해 유지).
  *
  * - 계산 로직은 절대 이 파일에 두지 않는다 (engines/*.ts 호출만 한다).
  * - 입력 필드는 상태(state.academicRecords 등)를 직접 수정하고, 결과 패널만 다시 그린다
@@ -34,6 +34,7 @@ import {
   getActiveGradeScale,
 } from "../engines/gradeEngine";
 import { computeReverseTarget, computeScenarios } from "../engines/targetEngine";
+import { convertFiveGradeAverageToNine, convertGradeAverageToNine, convertWeightedAverageToNine } from "../engines/gradeConversion";
 import { splitRecordsBySourceMode } from "../engines/recordReconciliation";
 import { autosave, loadAutosave, clearAutosave } from "../storage/indexedDb";
 import { downloadJsonFile, parseAndMigrate, readFileAsText } from "../storage/jsonBackup";
@@ -72,16 +73,22 @@ let importCandidates: ParsedTranscriptRecord[] = [];
 let importWarnings: string[] = [];
 let importProgressText = "";
 let pasteHandlerInstalled = false;
+let importQueue: Promise<void> = Promise.resolve();
+
+function getStudentCurrentGrade(): 1 | 2 | 3 {
+  return state.profile.gradeLevel ?? 3;
+}
+
+/** 현재 학년을 기준으로 과거 학년의 실제 학년도를 역산한다. */
+function academicYearForGradeLevel(gradeLevel: 1 | 2 | 3): number {
+  return getCurrentAcademicYear() - (getStudentCurrentGrade() - gradeLevel);
+}
 /**
  * 새로 추가하는 항목의 기본 등급체계로만 쓰인다. 기존 항목을 소급 변경하지 않는다.
- * 코호트 정책(getCohortPolicy)에 따라 초기화한다 — 이 MVP는 3학년 전용이며,
- * 교육부 2028 대입제도 개편에 따라 5등급제는 2025학년도 고1 입학생부터 적용되므로
- * 지금(2026학년도) 3학년은 구체제(9등급제) 코호트다. 이 기본값은 프로그램의 "현재 연도"가
- * 아니라 "3학년 학생이 실제로 속한 코호트"를 근거로 계산되므로, 매 학년도 자동으로
- * 올바른 값을 가리킨다 (검수 지적 반영 — P0: 등급체계 기본값이 실제 입시제도와
- * 어긋나면 목표등급 계산의 최악/이미확보 판정이 실제보다 낙관적으로 나올 수 있다).
+ * 현재 학년과 학년도를 기준으로 getCohortPolicy()가 입학연도를 역산해 5등급/9등급을 판정한다.
+ * 사용자가 현재 학년을 바꾸면 새 과목 기본 등급체계와 curriculumVersion도 함께 갱신한다.
  */
-let gradeScale: GradeScale = getCohortPolicy(getCurrentAcademicYear(), 3).gradeScale;
+let gradeScale: GradeScale = getCohortPolicy(getCurrentAcademicYear(), getStudentCurrentGrade()).gradeScale;
 let quickEntries: Record<string, QuickEntry[]> = Object.fromEntries(SUBJECT_GROUPS.map((s) => [s, []]));
 /** 빠른모드 UI가 편집할 수 없는 레코드(P/F, 기타 유형 등)를 그대로 보존한다.
  *  (검수 지적: 편집 불가 유형을 rankGrade로 몰래 바꾸면 원자료가 손실된다.) */
@@ -181,6 +188,8 @@ function rebuildQuickEntriesFromState(): void {
   }
   if (scaleCounts.size > 0) {
     gradeScale = [...scaleCounts.entries()].sort((a, b) => b[1] - a[1])[0][0] as GradeScale;
+  } else {
+    gradeScale = getCohortPolicy(getCurrentAcademicYear(), getStudentCurrentGrade()).gradeScale;
   }
 }
 
@@ -193,8 +202,8 @@ function renderMasthead(): HTMLElement {
     el("div", { class: "masthead-titles" }, [
       el("div", { class: "eyebrow" }, ["CHANGWON GYEONGIL H.S."]),
       el("h1", {}, ["진학설계 시스템"]),
-      el("div", { class: "subtitle" }, ["3학년 수시상담 · 빠른입력 모드"]),
-      el("div", { class: "version-badge" }, ["v1.1.2 · PDF/OCR · 학기별 분석"]),
+      el("div", { class: "subtitle" }, ["1·2·3학년 수시상담 · 내신 통합분석"]),
+      el("div", { class: "version-badge" }, ["v1.2.0 · PDF/OCR · 5→9등급 환산 · 학기별 분석"]),
     ]),
     el("div", { class: "seal" }, ["진학 상담"]),
   ]);
@@ -204,45 +213,83 @@ function renderMasthead(): HTMLElement {
 // 학생부 PDF / 성적표 이미지 자동 불러오기
 // ─────────────────────────────────────────────────────────
 
+function enqueueTranscriptFiles(files: File[]): void {
+  // 빠르게 연속 붙여넣기해도 이전 분석 결과를 덮어쓰지 않도록 순차 처리한다.
+  importQueue = importQueue.then(() => processTranscriptFiles(files, true));
+}
+
 function installGlobalPasteHandler(): void {
   if (pasteHandlerInstalled) return;
   pasteHandlerInstalled = true;
   document.addEventListener("paste", (event) => {
-    const item = Array.from(event.clipboardData?.items ?? []).find((x) => x.type.startsWith("image/"));
-    const file = item?.getAsFile();
-    if (!file) return;
+    const files = Array.from(event.clipboardData?.items ?? [])
+      .filter((item) => item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file != null);
+    if (files.length === 0) return;
     event.preventDefault();
-    void processTranscriptFile(file);
+    enqueueTranscriptFiles(files);
   });
 }
 
-async function processTranscriptFile(file: File): Promise<void> {
-  try {
-    importCandidates = [];
-    importWarnings = [];
-    importProgressText = "파일 분석을 시작합니다...";
+function importCandidateKey(r: ParsedTranscriptRecord): string {
+  return [r.gradeLevel, r.semester, r.subjectGroup, r.courseName.replace(/\s+/g, ""), r.credits, r.rankGrade ?? r.achievement ?? ""].join("|");
+}
+
+/**
+ * 여러 PDF/이미지를 순차 분석해 하나의 검토표에 누적한다.
+ * append=true이면 Ctrl+V를 여러 번 해도 앞서 붙여넣은 사진의 후보를 보존한다.
+ */
+async function processTranscriptFiles(files: File[], append = true): Promise<void> {
+  const accepted = files.filter((file) => file.type === "application/pdf" || file.type.startsWith("image/"));
+  if (accepted.length === 0) {
+    importWarnings = ["PDF 또는 이미지 파일만 불러올 수 있습니다."];
     if (currentRoot) mountApp(currentRoot);
-    const result = await importTranscriptDocument(file, (progress: ImportProgress) => {
-      importProgressText = `${progress.stage}${progress.percent != null ? ` · ${progress.percent}%` : ""}`;
-      const progressEl = document.getElementById("import-progress");
-      if (progressEl) progressEl.textContent = importProgressText;
-    });
-    importCandidates = result.records;
-    importWarnings = result.warnings;
-    importProgressText = `${result.records.length}개 성적 후보를 찾았습니다. 반영 전에 반드시 확인하세요.`;
-    if (currentRoot) mountApp(currentRoot);
-  } catch (e) {
-    console.error(e);
-    importProgressText = "";
-    importWarnings = [e instanceof Error ? e.message : "파일 분석 중 오류가 발생했습니다."];
-    if (currentRoot) mountApp(currentRoot);
+    return;
   }
+
+  const baseCandidates = append ? [...importCandidates] : [];
+  const baseWarnings = append ? [...importWarnings] : [];
+  const added: ParsedTranscriptRecord[] = [];
+  const warnings: string[] = [];
+
+  importProgressText = `${accepted.length}개 파일 분석을 시작합니다...`;
+  if (currentRoot) mountApp(currentRoot);
+
+  for (let index = 0; index < accepted.length; index += 1) {
+    const file = accepted[index];
+    try {
+      const result = await importTranscriptDocument(file, (progress: ImportProgress) => {
+        importProgressText = `[${index + 1}/${accepted.length}] ${file.name || "붙여넣은 이미지"} · ${progress.stage}${progress.percent != null ? ` · ${progress.percent}%` : ""}`;
+        const progressEl = document.getElementById("import-progress");
+        if (progressEl) progressEl.textContent = importProgressText;
+      });
+      added.push(...result.records);
+      warnings.push(...result.warnings.map((warning) => `${file.name || `이미지 ${index + 1}`}: ${warning}`));
+    } catch (e) {
+      console.error(e);
+      warnings.push(`${file.name || `파일 ${index + 1}`}: ${e instanceof Error ? e.message : "파일 분석 중 오류가 발생했습니다."}`);
+    }
+  }
+
+  const seen = new Set(baseCandidates.map(importCandidateKey));
+  const dedupedAdded: ParsedTranscriptRecord[] = [];
+  for (const candidate of added) {
+    const key = importCandidateKey(candidate);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    dedupedAdded.push(candidate);
+  }
+  importCandidates = [...baseCandidates, ...dedupedAdded];
+  importWarnings = [...baseWarnings, ...warnings];
+  importProgressText = `${accepted.length}개 파일 분석 완료 · 새 후보 ${dedupedAdded.length}건 · 검토표 누적 ${importCandidates.length}건`;
+  if (currentRoot) mountApp(currentRoot);
 }
 
 function importedRecordsToAcademic(records: ParsedTranscriptRecord[]): AcademicRecord[] {
   const currentYear = getCurrentAcademicYear();
   return records.map((r) => {
-    const academicYear = currentYear - (3 - r.gradeLevel);
+    const academicYear = currentYear - (getStudentCurrentGrade() - r.gradeLevel);
     const policy = getCohortPolicy(academicYear, r.gradeLevel);
     return {
       id: generateId("import"),
@@ -275,7 +322,7 @@ function renderImportSection(): HTMLElement {
       el("span", { class: "feature-badge" }, ["NEW"]),
     ]),
     el("p", { class: "card-desc" }, [
-      "학생부 PDF 또는 성적표 이미지를 선택하거나 아래 영역에 끌어놓으세요. 캡처한 성적표 이미지는 이 페이지에서 Ctrl+V로 바로 붙여넣을 수 있습니다. ",
+      "학생부 PDF 또는 성적표 이미지를 여러 개 선택하거나 아래 영역에 한꺼번에 끌어놓으세요. 캡처한 성적표 이미지는 Ctrl+V로 여러 번 붙여넣을 수 있고, 이전 후보가 사라지지 않고 누적됩니다. ",
       "PDF는 텍스트를 우선 읽고, 스캔 PDF·사진은 브라우저 OCR로 처리합니다. 파일 내용은 성적 추출을 위해 외부 서버로 업로드하지 않지만 OCR/PDF 라이브러리와 한글 인식모델은 CDN에서 내려받습니다. ",
       "자동 인식은 틀릴 수 있으므로 반드시 아래 검토표를 확인한 뒤 반영하세요.",
     ])
@@ -284,20 +331,21 @@ function renderImportSection(): HTMLElement {
   const fileInput = el("input", {
     type: "file",
     accept: "application/pdf,image/*",
+    multiple: "multiple",
     style: "display:none",
   }) as HTMLInputElement;
-  const choosePdf = el("button", { class: "btn secondary", type: "button" }, ["PDF·성적 사진 선택"]);
+  const choosePdf = el("button", { class: "btn secondary", type: "button" }, ["PDF·성적 사진 여러 장 선택"]);
   choosePdf.addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", () => {
-    const file = fileInput.files?.[0];
-    if (file) void processTranscriptFile(file);
+    const files = Array.from(fileInput.files ?? []);
+    if (files.length > 0) enqueueTranscriptFiles(files);
     fileInput.value = "";
   });
 
   const dropZone = el("div", { class: "import-drop-zone", tabindex: "0" }, [
     el("div", { class: "drop-icon" }, ["PDF / IMG"]),
-    el("strong", {}, ["학생부 PDF 또는 성적 사진을 여기에 드롭"]),
-    el("span", {}, ["또는 화면 캡처 후 Ctrl+V 붙여넣기"]),
+    el("strong", {}, ["학생부 PDF 또는 성적 사진 여러 장을 한꺼번에 드롭"]),
+    el("span", {}, ["또는 캡처 이미지를 Ctrl+V로 여러 번 붙여넣기 · 후보가 누적됩니다"]),
   ]);
   dropZone.addEventListener("dragover", (e) => {
     e.preventDefault();
@@ -307,12 +355,19 @@ function renderImportSection(): HTMLElement {
   dropZone.addEventListener("drop", (e) => {
     e.preventDefault();
     dropZone.classList.remove("drag-over");
-    const file = e.dataTransfer?.files?.[0];
-    if (file) void processTranscriptFile(file);
+    const files = Array.from(e.dataTransfer?.files ?? []);
+    if (files.length > 0) enqueueTranscriptFiles(files);
   });
   dropZone.addEventListener("click", () => fileInput.click());
 
-  const controls = el("div", { class: "import-controls" }, [choosePdf, fileInput]);
+  const clearCandidatesBtn = el("button", { class: "btn secondary", type: "button" }, ["검토 후보 비우기"]);
+  clearCandidatesBtn.addEventListener("click", () => {
+    importCandidates = [];
+    importWarnings = [];
+    importProgressText = "검토 후보를 비웠습니다.";
+    if (currentRoot) mountApp(currentRoot);
+  });
+  const controls = el("div", { class: "import-controls" }, [choosePdf, clearCandidatesBtn, fileInput]);
   section.append(controls, dropZone);
 
   const progress = el("div", { id: "import-progress", class: "import-progress" }, [importProgressText]);
@@ -337,6 +392,7 @@ function renderImportSection(): HTMLElement {
           el("th", { class: "num" }, ["단위"]),
           el("th", {}, ["평가"]),
           el("th", { class: "num" }, ["등급/성취"]),
+          el("th", { class: "num" }, ["9등급 환산"]),
           el("th", { class: "num" }, ["확신도"]),
           el("th", {}, ["삭제"]),
         ]),
@@ -347,7 +403,10 @@ function renderImportSection(): HTMLElement {
       const gradeSelect = el("select", {}) as HTMLSelectElement;
       [1, 2, 3].forEach((g) => gradeSelect.appendChild(el("option", { value: String(g) }, [`${g}학년`]) as HTMLOptionElement));
       gradeSelect.value = String(candidate.gradeLevel);
-      gradeSelect.addEventListener("change", () => (candidate.gradeLevel = Number(gradeSelect.value) as 1 | 2 | 3));
+      gradeSelect.addEventListener("change", () => {
+        candidate.gradeLevel = Number(gradeSelect.value) as 1 | 2 | 3;
+        updateCandidateConversion();
+      });
 
       const semesterSelect = el("select", {}) as HTMLSelectElement;
       [1, 2].forEach((sem) => semesterSelect.appendChild(el("option", { value: String(sem) }, [`${sem}학기`]) as HTMLOptionElement));
@@ -378,9 +437,16 @@ function renderImportSection(): HTMLElement {
       });
 
       let scoreControl: HTMLElement;
+      let rankGradeInput: HTMLInputElement | null = null;
       if (candidate.evaluationType === "rankGrade") {
-        const input = el("input", { type: "number", min: "1", max: "9", value: candidate.rankGrade != null ? String(candidate.rankGrade) : "" }) as HTMLInputElement;
-        input.addEventListener("input", () => (candidate.rankGrade = Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : undefined));
+        const initialAcademicYear = getCurrentAcademicYear() - (getStudentCurrentGrade() - candidate.gradeLevel);
+        const initialScale = getCohortPolicy(initialAcademicYear, candidate.gradeLevel).gradeScale;
+        const input = el("input", { type: "number", min: "1", max: String(initialScale), value: candidate.rankGrade != null ? String(candidate.rankGrade) : "" }) as HTMLInputElement;
+        rankGradeInput = input;
+        input.addEventListener("input", () => {
+          candidate.rankGrade = Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : undefined;
+          updateCandidateConversion();
+        });
         scoreControl = input;
       } else {
         const select = el("select", {}) as HTMLSelectElement;
@@ -389,6 +455,26 @@ function renderImportSection(): HTMLElement {
         select.addEventListener("change", () => (candidate.achievement = select.value as AchievementLevel));
         scoreControl = select;
       }
+
+      const conversionDisplay = el("span", { class: "entry-conversion-hint" }, []);
+      function updateCandidateConversion(): void {
+        if (candidate.evaluationType !== "rankGrade" || candidate.rankGrade == null) {
+          conversionDisplay.textContent = "-";
+          return;
+        }
+        const academicYear = getCurrentAcademicYear() - (getStudentCurrentGrade() - candidate.gradeLevel);
+        const candidateScale = getCohortPolicy(academicYear, candidate.gradeLevel).gradeScale;
+        if (rankGradeInput) {
+          rankGradeInput.max = String(candidateScale);
+          const check = validateRankGrade(candidate.rankGrade, candidateScale);
+          rankGradeInput.setCustomValidity(check.valid ? "" : check.message ?? "");
+        }
+        const converted = candidateScale === 9
+          ? candidate.rankGrade
+          : convertFiveGradeAverageToNine(candidate.rankGrade);
+        conversionDisplay.textContent = converted == null ? "-" : converted.toFixed(2);
+      }
+      updateCandidateConversion();
 
       const remove = el("button", { class: "remove-btn", type: "button" }, ["✕"]);
       remove.addEventListener("click", () => {
@@ -405,6 +491,7 @@ function renderImportSection(): HTMLElement {
           el("td", { class: "num" }, [creditsInput]),
           el("td", {}, [evalSelect]),
           el("td", { class: "num" }, [scoreControl]),
+          el("td", { class: "num" }, [conversionDisplay]),
           el("td", { class: "num" }, [`${Math.round(candidate.confidence * 100)}%`]),
           el("td", {}, [remove]),
         ])
@@ -459,6 +546,22 @@ function renderProfileBar(): HTMLElement {
   });
   nameLabel.appendChild(nameInput);
 
+  const currentAcademicYear = getCurrentAcademicYear();
+  const gradeLabel = el("label", {}, ["현재 학년"]);
+  const gradeSelect = el("select", {}) as HTMLSelectElement;
+  [1, 2, 3].forEach((g) => gradeSelect.appendChild(el("option", { value: String(g) }, [`${g}학년`]) as HTMLOptionElement));
+  gradeSelect.value = String(getStudentCurrentGrade());
+  gradeSelect.addEventListener("change", () => {
+    const selected = Number(gradeSelect.value) as 1 | 2 | 3;
+    state.profile.gradeLevel = selected;
+    const selectedPolicy = getCohortPolicy(currentAcademicYear, selected);
+    gradeScale = selectedPolicy.gradeScale;
+    state.curriculumVersion = selectedPolicy.curriculumVersion;
+    scheduleAutosave();
+    if (currentRoot) mountApp(currentRoot);
+  });
+  gradeLabel.appendChild(gradeSelect);
+
   const anonLabel = el("label", {}, []);
   const anonCheckbox = el("input", { type: "checkbox" }) as HTMLInputElement;
   anonCheckbox.checked = !!state.profile.anonymized;
@@ -468,9 +571,8 @@ function renderProfileBar(): HTMLElement {
   });
   anonLabel.append(anonCheckbox, " 익명 저장 (JSON·Excel 파일에서 이름·학번 제거)");
 
-  const currentAcademicYear = getCurrentAcademicYear();
-  const currentCohortPolicy = getCohortPolicy(currentAcademicYear, 3);
-  const scaleLabel = el("label", { title: `새로 추가하는 과목에만 적용되는 기본값입니다. 이미 입력된 성적이나 목표등급 계산은 각 과목에 실제 저장된 등급체계를 따릅니다. ${currentAcademicYear}학년도 3학년은 ${currentCohortPolicy.gradeScale}등급제 코호트로 자동 판정됩니다.` }, [
+  const currentCohortPolicy = getCohortPolicy(currentAcademicYear, getStudentCurrentGrade());
+  const scaleLabel = el("label", { title: `새로 추가하는 과목에만 적용되는 기본값입니다. 이미 입력된 성적이나 목표등급 계산은 각 과목에 실제 저장된 등급체계를 따릅니다. ${currentAcademicYear}학년도 ${getStudentCurrentGrade()}학년은 ${currentCohortPolicy.gradeScale}등급제 코호트로 자동 판정됩니다.` }, [
     "새 과목 입력 시 기본 등급체계",
   ]);
   const scaleSelect = el("select", {}) as HTMLSelectElement;
@@ -490,7 +592,7 @@ function renderProfileBar(): HTMLElement {
     "자동저장 대기",
   ]);
 
-  bar.append(nameLabel, anonLabel, scaleLabel, saveIndicator);
+  bar.append(nameLabel, gradeLabel, anonLabel, scaleLabel, saveIndicator);
   return bar;
 }
 
@@ -508,7 +610,7 @@ function renderGradeSection(): HTMLElement {
       "교과군마다 이수한 과목 수만큼 '입력 추가'를 눌러 단위수와 등급을 입력하세요. ",
       "석차등급이 아닌 성취평가(A~E) 과목은 유형을 '성취평가'로 바꾸면 평균 계산에서 자동으로 제외되고 별도로 표시됩니다. ",
       "각 입력행에서 이수 학기를 선택하면 학기별·전체 가중평균에 자동 반영됩니다. ",
-      `${getCurrentAcademicYear()}학년도 3학년은 코호트 정책에 따라 ${getCohortPolicy(getCurrentAcademicYear(), 3).gradeScale}등급제가 기본값입니다 — 재학 중인 학교/학년에 맞게 각 항목에서 직접 바꿀 수 있습니다.`,
+      `${getCurrentAcademicYear()}학년도 ${getStudentCurrentGrade()}학년은 코호트 정책에 따라 ${getCohortPolicy(getCurrentAcademicYear(), getStudentCurrentGrade()).gradeScale}등급제가 기본값입니다. 5등급제 평균은 제공된 환산표 기준 9등급 참고값을 함께 표시합니다.`,
     ])
   );
 
@@ -552,7 +654,7 @@ function renderSubjectBlockContents(block: HTMLElement, subject: string): void {
 
   const addBtn = el("button", { class: "add-entry-btn", type: "button" }, ["+ 입력 추가"]);
   addBtn.addEventListener("click", () => {
-    entries.push({ entryId: generateId("entry"), gradeLevel: 3, semester: 1, periodSpecified: true, courseName: "", evaluationType: "rankGrade", gradeScale });
+    entries.push({ entryId: generateId("entry"), gradeLevel: getStudentCurrentGrade(), semester: 1, periodSpecified: true, courseName: "", evaluationType: "rankGrade", gradeScale });
     renderSubjectBlockContents(block, subject);
     refreshGradeSummary();
   });
@@ -574,7 +676,7 @@ function renderEntryRow(subject: string, entry: QuickEntry): HTMLElement {
   for (const semester of COUNSELING_SEMESTERS) {
     periodSelect.appendChild(el("option", { value: semester.key }, [semester.label]) as HTMLOptionElement);
   }
-  periodSelect.value = entry.periodSpecified ? `${entry.gradeLevel ?? 3}-${entry.semester ?? 1}` : "aggregate";
+  periodSelect.value = entry.periodSpecified ? `${entry.gradeLevel ?? getStudentCurrentGrade()}-${entry.semester ?? 1}` : "aggregate";
   periodSelect.addEventListener("change", () => {
     if (periodSelect.value === "aggregate") {
       entry.periodSpecified = false;
@@ -665,7 +767,21 @@ function renderEntryRow(subject: string, entry: QuickEntry): HTMLElement {
       refreshGradeSummary();
       scheduleAutosave();
     });
-    row.append(scaleSelect, gradeInput, el("span", { class: "unit-label" }, ["등급"]));
+
+    const conversionHint = el("span", { class: "entry-conversion-hint" }, []);
+    const updateConversionHint = () => {
+      const scale = entry.gradeScale ?? gradeScale;
+      if (entry.rankGrade == null || !Number.isFinite(entry.rankGrade)) {
+        conversionHint.textContent = "9환산 -";
+        return;
+      }
+      const converted = scale === 9 ? entry.rankGrade : convertFiveGradeAverageToNine(entry.rankGrade);
+      conversionHint.textContent = `9환산 ${converted == null ? "-" : converted.toFixed(2)}`;
+    };
+    scaleSelect.addEventListener("change", updateConversionHint);
+    gradeInput.addEventListener("input", updateConversionHint);
+    updateConversionHint();
+    row.append(scaleSelect, gradeInput, el("span", { class: "unit-label" }, ["등급"]), conversionHint);
   } else {
     const achSelect = el("select", {}) as HTMLSelectElement;
     achSelect.append(
@@ -710,9 +826,9 @@ function recordsFromQuickEntries(): AcademicRecord[] {
       if (e.credits == null || e.credits <= 0) return; // 미입력 항목은 계산에서 제외
       if (e.evaluationType === "rankGrade" && e.rankGrade == null) return;
       if (e.evaluationType === "achievement" && !e.achievement) return;
-      const gradeLevel = e.periodSpecified ? e.gradeLevel ?? 3 : 3;
+      const gradeLevel = e.periodSpecified ? e.gradeLevel ?? getStudentCurrentGrade() : getStudentCurrentGrade();
       const semester = e.periodSpecified ? e.semester ?? 1 : 1;
-      const academicYear = e.periodSpecified ? getCurrentAcademicYear() - (3 - gradeLevel) : getCurrentAcademicYear();
+      const academicYear = e.periodSpecified ? academicYearForGradeLevel(gradeLevel) : getCurrentAcademicYear();
       records.push({
         id: e.entryId,
         academicYear,
@@ -738,6 +854,19 @@ function refreshGradeSummary(): void {
   refreshTargetSection();
 }
 
+function formatNineGradeEquivalent(result: ReturnType<typeof computeWeightedAverage>): string {
+  return formatGrade(convertWeightedAverageToNine(result));
+}
+
+function buildDualGradeCell(result: ReturnType<typeof computeWeightedAverage>): HTMLElement {
+  const raw = formatGrade(result.average);
+  const converted = formatNineGradeEquivalent(result);
+  return el("div", { class: "grade-pair" }, [
+    el("span", { class: "grade-pair-raw" }, [raw]),
+    el("span", { class: "grade-pair-converted" }, [`9환산 ${converted}`]),
+  ]);
+}
+
 function renderGradeSummaryInto(container: HTMLElement): void {
   clear(container);
   const records = state.academicRecords;
@@ -755,7 +884,8 @@ function renderGradeSummaryInto(container: HTMLElement): void {
     el("tr", {}, [
       el("th", {}, ["구분"]),
       el("th", { class: "num" }, ["단위수"]),
-      el("th", { class: "num" }, ["가중평균"]),
+      el("th", { class: "num" }, ["가중평균(원등급)"]),
+      el("th", { class: "num" }, ["9등급 환산"]),
       el("th", {}, ["근거"]),
     ]),
   ]);
@@ -764,16 +894,16 @@ function renderGradeSummaryInto(container: HTMLElement): void {
 
   for (const g of bySubject) {
     if (g.result.courseCount === 0 && g.result.excludedAchievementCourses.length === 0) continue;
-    tbody.appendChild(buildLedgerRow(g.subjectGroup, g.result.totalCredits, formatGrade(g.result.average), buildEvidenceText(g.result)));
+    tbody.appendChild(buildLedgerRow(g.subjectGroup, g.result.totalCredits, formatGrade(g.result.average), formatNineGradeEquivalent(g.result), buildEvidenceText(g.result)));
   }
 
-  const divider = el("tr", { class: "combo-row" }, [el("td", { colSpan: "4" }, ["참고용 교과 조합 (아직 특정 대학 규칙과 연결되지 않음)"])]);
+  const divider = el("tr", { class: "combo-row" }, [el("td", { colSpan: "5" }, ["참고용 교과 조합 (아직 특정 대학 규칙과 연결되지 않음)"])]);
   tbody.appendChild(divider);
   for (const c of combos) {
-    tbody.appendChild(buildLedgerRow(c.def.label, c.result.totalCredits, formatGrade(c.result.average), buildEvidenceText(c.result), true));
+    tbody.appendChild(buildLedgerRow(c.def.label, c.result.totalCredits, formatGrade(c.result.average), formatNineGradeEquivalent(c.result), buildEvidenceText(c.result), true));
   }
   tbody.appendChild(
-    buildLedgerRow("석차등급 산출과목 전교과", comboAll.totalCredits, formatGrade(comboAll.average), buildEvidenceText(comboAll), true)
+    buildLedgerRow("석차등급 산출과목 전교과", comboAll.totalCredits, formatGrade(comboAll.average), formatNineGradeEquivalent(comboAll), buildEvidenceText(comboAll), true)
   );
 
   table.appendChild(tbody);
@@ -801,9 +931,9 @@ function renderGradeSummaryInto(container: HTMLElement): void {
       el("tr", row.semester == null ? { class: "combo-row total-row" } : {}, [
         el("td", {}, [row.label]),
         ...REFERENCE_COMBINATIONS.map((c) =>
-          el("td", { class: "num" }, [formatGrade(row.combinations[c.id].average)])
+          el("td", { class: "num" }, [buildDualGradeCell(row.combinations[c.id])])
         ),
-        el("td", { class: "num" }, [formatGrade(row.allSubjects.average)]),
+        el("td", { class: "num" }, [buildDualGradeCell(row.allSubjects)]),
       ])
     );
   }
@@ -812,7 +942,7 @@ function renderGradeSummaryInto(container: HTMLElement): void {
   container.appendChild(
     el("p", { class: "achievement-note" }, [
       semesterAware.length > 0
-        ? "전체 값은 5개 학기 평균을 단순평균한 값이 아니라, 5개 학기의 모든 석차등급 산출과목을 합쳐 Σ(단위수×등급)÷Σ단위수로 다시 계산한 값입니다."
+        ? "전체 값은 5개 학기 평균을 단순평균한 값이 아니라, 5개 학기의 모든 석차등급 산출과목을 합쳐 Σ(단위수×등급)÷Σ단위수로 다시 계산한 값입니다. 5등급제 결과는 제공된 Excel 환산표의 근사 VLOOKUP 방식으로 9등급 참고값을 함께 표시합니다."
         : "아직 학기 정보가 있는 성적이 없습니다. PDF/사진에서 성적을 불러오거나 수동 입력행의 ‘이수 학기’를 선택하면 위 표가 자동으로 채워집니다.",
     ])
   );
@@ -845,14 +975,21 @@ function buildEvidenceText(result: ReturnType<typeof computeCombination>): strin
   }
   if (result.mixedGradeScaleWarning) {
     lines.push("⚠ 등급체계 혼재로 평균 미계산");
+  } else if (result.gradeScale === 5 && result.average.kind === "value") {
+    lines.push(`9등급 환산(참고): ${formatNineGradeEquivalent(result)} — 제공 Excel 환산표 근사 VLOOKUP 기준`);
+  } else if (result.gradeScale === 9 && result.average.kind === "value") {
+    lines.push(`9등급 환산: 원 9등급 값과 동일(${formatNineGradeEquivalent(result)})`);
   }
   return lines.join("\n");
 }
 
-function buildLedgerRow(label: string, credits: number, avgText: string, evidence: string, bold = false): DocumentFragment {
+function buildLedgerRow(label: string, credits: number, avgText: string, convertedText: string, evidence: string, bold = false): DocumentFragment {
   const tr = el("tr", bold ? { class: "combo-row" } : {});
   const avgCell = el("td", { class: "num" }, [
     avgText === "-" ? el("span", { class: "empty-value" }, ["-"]) : document.createTextNode(avgText),
+  ]);
+  const convertedCell = el("td", { class: "num converted-grade-cell" }, [
+    convertedText === "-" ? el("span", { class: "empty-value" }, ["-"]) : document.createTextNode(convertedText),
   ]);
   const toggleBtn = el("button", { class: "info-toggle", type: "button" }, ["ⓘ"]);
   const evidenceBox = el("div", { class: "evidence-box" }, [evidence]);
@@ -860,11 +997,17 @@ function buildLedgerRow(label: string, credits: number, avgText: string, evidenc
 
   const evidenceCell = el("td", {}, [toggleBtn]);
 
-  tr.append(el("td", {}, [label]), el("td", { class: "num" }, [credits > 0 ? String(credits) : "-"]), avgCell, evidenceCell);
+  tr.append(
+    el("td", {}, [label]),
+    el("td", { class: "num" }, [credits > 0 ? String(credits) : "-"]),
+    avgCell,
+    convertedCell,
+    evidenceCell
+  );
 
   // 결과행 + 근거(펼침) 행을 함께 tbody에 삽입하기 위해 DocumentFragment로 묶어 반환한다.
   const frag = document.createDocumentFragment();
-  frag.append(tr, el("tr", {}, [el("td", { colSpan: "4", style: "padding:0 0 4px;border:none;" }, [evidenceBox])]));
+  frag.append(tr, el("tr", {}, [el("td", { colSpan: "5", style: "padding:0 0 4px;border:none;" }, [evidenceBox])]));
   return frag;
 }
 
@@ -933,6 +1076,13 @@ function refreshTargetSection(): void {
   }
 }
 
+function formatNineFromNumber(valueToConvert: number, gradeScaleToUse: GradeScale): string {
+  if (!Number.isFinite(valueToConvert)) return "-";
+  if (gradeScaleToUse === 9) return valueToConvert.toFixed(2);
+  const converted = convertFiveGradeAverageToNine(valueToConvert);
+  return converted == null ? "-" : converted.toFixed(2);
+}
+
 function renderTargetResult(futureCredits: number, targetGrade: number): void {
   if (!targetSectionBody) return;
   clear(targetSectionBody);
@@ -980,24 +1130,44 @@ function renderTargetResult(futureCredits: number, targetGrade: number): void {
     result.feasibility === "achievable" ? "달성 가능" : result.feasibility === "impossible" ? "달성 불가" : "이미 확보",
   ]);
 
+  const currentNine = formatGrade(convertGradeAverageToNine(comboAll.average, activeScale));
+  const targetNine = formatNineFromNumber(targetGrade, activeScale);
+  const requiredNine = result.requiredAverage.kind === "value"
+    ? formatNineFromNumber(result.requiredAverage.value, activeScale)
+    : "-";
+
   targetSectionBody.append(
     el("p", {}, [
-      `현재 누적 ${formatGrade(comboAll.average)} (${U}단위, ${activeScale}등급제) → 목표등급 ${targetGrade.toFixed(2)} 이하, 향후 ${futureCredits}단위 기준 `,
+      `현재 누적 ${formatGrade(comboAll.average)} (${U}단위, ${activeScale}등급제 · 9환산 ${currentNine}) → 목표 ${targetGrade.toFixed(2)} (9환산 ${targetNine}) 이하, 향후 ${futureCredits}단위 기준 `,
       badge,
     ]),
-    el("p", { class: "card-desc", style: "white-space:pre-line;" }, [result.message])
+    el("p", { class: "card-desc", style: "white-space:pre-line;" }, [
+      `${result.message}${result.requiredAverage.kind === "value" ? `\n필요 평균 9등급 환산 참고값: ${requiredNine}` : ""}`,
+    ])
   );
 
   const scenarios = computeScenarios(U, S, futureCredits, activeScale);
   if (scenarios.length > 0) {
     const table = el("table", { class: "ledger" });
     table.append(
-      el("thead", {}, [el("tr", {}, [el("th", {}, ["다음 구간 평균"]), el("th", { class: "num" }, ["예상 누적등급"])])])
+      el("thead", {}, [
+        el("tr", {}, [
+          el("th", {}, ["다음 구간 평균"]),
+          el("th", { class: "num" }, ["9등급 환산"]),
+          el("th", { class: "num" }, ["예상 누적등급"]),
+          el("th", { class: "num" }, ["누적 9등급 환산"]),
+        ]),
+      ])
     );
     const tbody = el("tbody", {});
     for (const row of scenarios) {
       tbody.appendChild(
-        el("tr", {}, [el("td", {}, [row.futureAverage.toFixed(2)]), el("td", { class: "num" }, [formatGrade(row.expectedCumulative)])])
+        el("tr", {}, [
+          el("td", {}, [row.futureAverage.toFixed(2)]),
+          el("td", { class: "num" }, [formatNineFromNumber(row.futureAverage, activeScale)]),
+          el("td", { class: "num" }, [formatGrade(row.expectedCumulative)]),
+          el("td", { class: "num" }, [formatGrade(convertGradeAverageToNine(row.expectedCumulative, activeScale))]),
+        ])
       );
     }
     table.appendChild(tbody);
