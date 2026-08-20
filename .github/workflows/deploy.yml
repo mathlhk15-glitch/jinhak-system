@@ -1,0 +1,46 @@
+name: Deploy to GitHub Pages
+
+# 소스를 그대로 저장소에 올려두면, main 브랜치에 push될 때마다 이 워크플로가
+# npm install → npm run build를 자동으로 수행하고 dist/ 결과물을 GitHub Pages에 배포한다.
+# 즉 "폴더를 그대로 올리기만 하면" 실제로 동작하는 구조를 여기서 완성한다.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.12.0"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
