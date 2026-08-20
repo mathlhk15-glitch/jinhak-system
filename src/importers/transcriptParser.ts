@@ -90,12 +90,19 @@ function parseNumeric(token: string): number | undefined {
 }
 
 function cleanCourseName(tokens: string[], subjectGroup: SubjectGroup): string {
-  const kept = tokens.filter((token) => {
-    const t = token.trim();
-    if (!t || HEADER_WORDS.has(t) || t === subjectGroup) return false;
-    if (/^[123]학년$/.test(t) || /^[12]학기$/.test(t) || /^[123][-\/][12]$/.test(t)) return false;
-    return true;
-  });
+  const kept = tokens
+    .map((token) => token.trim())
+    .filter((t) => {
+      if (!t || HEADER_WORDS.has(t)) return false;
+      if (/^[123]학년$/.test(t) || /^[12]학기$/.test(t) || /^[123][-\/][12]$/.test(t)) return false;
+      return true;
+    });
+
+  // 생기부 표에는 `교과 | 과목`이 별도 열로 있어 `국어 | 국어`처럼 같은 문자열이
+  // 연속으로 나올 수 있다. 기존에는 subjectGroup과 같은 토큰을 전부 제거해 과목명이
+  // 빈 문자열이 되면서 해당 행 전체가 누락됐다. 교과 열로 보이는 맨 앞 토큰만 1회 제거한다.
+  if (kept.length >= 2 && kept[0] === subjectGroup) kept.shift();
+
   return kept.join(" ").replace(/\s+/g, " ").trim();
 }
 
@@ -117,11 +124,33 @@ export function parseTranscriptText(text: string): TranscriptParseResult {
     let gradeLevel = currentGrade;
     let semester = currentSemester;
     let tokenStart = 0;
+
+    // 학교생활기록부 PDF는 학년/학기 셀이 행 병합(rowspan)된 표인 경우가 많다.
+    // 첫 행에만 `1 | 1 | 국어 | ...`가 나오고 다음 행에는 학년/학기 값이 생략되며,
+    // 2학기 첫 행은 학년이 생략된 채 `2 | 국어 | ...`처럼 시작할 수 있다.
+    // 기존 구현은 이 숫자형 문맥을 현재 상태에 반영하지 않아 2학기 이후 행들이
+    // 직전 학기로 잘못 귀속되는 문제가 있었다.
     if (/^[123]$/.test(tokens[0] ?? "") && /^[12]$/.test(tokens[1] ?? "")) {
       gradeLevel = Number(tokens[0]) as 1 | 2 | 3;
       semester = Number(tokens[1]) as 1 | 2;
       tokenStart = 2;
+    } else if (currentGrade && /^[12]$/.test(tokens[0] ?? "")) {
+      // 학년 셀이 병합되어 생략되고 학기만 첫 열에 나타나는 경우.
+      // 탭 기반 PDF 추출이거나 뒤쪽에 교과명이 확인되는 행만 문맥 숫자로 취급해
+      // 단위수 1/2를 학기로 오인할 가능성을 줄인다.
+      const restText = tokens.slice(1, 5).join(" ");
+      const looksLikeSemesterOnlyRow = line.includes("\t") || inferSubjectGroup(restText, line) !== "기타";
+      if (looksLikeSemesterOnlyRow) {
+        gradeLevel = currentGrade;
+        semester = Number(tokens[0]) as 1 | 2;
+        tokenStart = 1;
+      }
     }
+
+    // 숫자형 표 문맥도 이후 행에 상속해야 한다.
+    // (기존에는 이 갱신이 없어 rowspan 표의 후속 행이 잘못된 학기로 들어갔다.)
+    if (gradeLevel) currentGrade = gradeLevel;
+    if (semester) currentSemester = semester;
 
     const body = tokens.slice(tokenStart);
     let achievement: AchievementLevel | undefined;
@@ -178,5 +207,25 @@ export function parseTranscriptText(text: string): TranscriptParseResult {
 
   if (records.length === 0) warnings.push("성적 행을 자동으로 찾지 못했습니다. 문서 양식에 맞춘 파서 보정이 필요할 수 있습니다.");
   if (records.some((r) => r.subjectGroup === "기타")) warnings.push("교과군을 자동 판별하지 못한 과목이 있습니다. 검토표에서 교과군을 확인하세요.");
+
+  // 3학년 1학기 성적까지 인식된 문서는 통상 수시상담용 5개 학기 자료가 있어야 한다.
+  // 누락 학기를 조용히 '-'로 보여주지 말고 자동추출 경고로 알려 검토표에서 확인하게 한다.
+  const expectedFive = [
+    { gradeLevel: 1 as const, semester: 1 as const, label: "1학년 1학기" },
+    { gradeLevel: 1 as const, semester: 2 as const, label: "1학년 2학기" },
+    { gradeLevel: 2 as const, semester: 1 as const, label: "2학년 1학기" },
+    { gradeLevel: 2 as const, semester: 2 as const, label: "2학년 2학기" },
+    { gradeLevel: 3 as const, semester: 1 as const, label: "3학년 1학기" },
+  ];
+  const hasThirdFirst = records.some((r) => r.gradeLevel === 3 && r.semester === 1);
+  if (hasThirdFirst) {
+    const missing = expectedFive
+      .filter((s) => !records.some((r) => r.gradeLevel === s.gradeLevel && r.semester === s.semester))
+      .map((s) => s.label);
+    if (missing.length > 0) {
+      warnings.push(`5개 학기 중 ${missing.join(", ")} 성적이 인식되지 않았습니다. 자동추출 검토표의 학년·학기 배정을 확인하세요.`);
+    }
+  }
+
   return { records, warnings };
 }

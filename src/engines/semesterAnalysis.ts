@@ -61,9 +61,13 @@ export function computeSemesterCombinationMatrix(
   for (const combo of combinations) {
     totalComboResults[combo.id] = computeCombination(semesterAware, combo.subjectGroups);
   }
+  const recognizedSemesterCount = rows.filter((row) => row.records.length > 0).length;
   rows.push({
     semester: null,
-    label: "전체(5개 학기 단위수 가중)",
+    label:
+      recognizedSemesterCount === COUNSELING_SEMESTERS.length
+        ? "전체(5개 학기 단위수 가중)"
+        : `전체(${recognizedSemesterCount}/5학기 인식 · 단위수 가중)`,
     records: semesterAware,
     combinations: totalComboResults,
     allSubjects: computeWeightedAverage(semesterAware),

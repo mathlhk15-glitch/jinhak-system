@@ -352,7 +352,7 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
         if (item.semester == null) row.font = { bold: true };
         r += 1;
       }
-      ws.getCell(`A${r}`).value = "※ 전체는 학기 평균의 단순평균이 아니라, 5개 학기 전체 과목을 합쳐 단위수 가중평균으로 다시 계산한 값입니다.";
+      ws.getCell(`A${r}`).value = "※ 전체는 학기 평균의 단순평균이 아니라, 현재 인식된 학기의 모든 과목을 합쳐 단위수 가중평균으로 다시 계산한 값입니다. 5개 학기가 모두 인식되었는지 웹 화면의 학기 인식 수를 확인하세요.";
       ws.getCell(`A${r}`).font = { italic: true, size: 9, color: { argb: "FF666666" } };
       r += 1;
     }

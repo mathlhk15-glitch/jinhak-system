@@ -20,4 +20,30 @@ describe("transcript parser", () => {
     const result = parseTranscriptText("1 1 국어 공통국어1 4 2");
     expect(result.records[0]).toMatchObject({ courseName: "공통국어1", credits: 4, rankGrade: 2 });
   });
+
+  it("행 병합된 생기부 표에서 숫자형 학년/학기 문맥을 후속 행에 상속한다", () => {
+    const text = [
+      "1\t1\t국어\t국어\t4\t2",
+      "수학\t수학\t4\t1",
+      "2\t영어\t영어Ⅰ\t3\t2",
+      "국어\t문학\t4\t3",
+      "2\t1\t국어\t독서\t4\t2",
+      "수학\t수학Ⅰ\t4\t2",
+      "2\t사회\t사회·문화\t3\t3",
+      "과학\t생명과학Ⅰ\t3\t2",
+      "3\t1\t국어\t화법과 작문\t4\t2",
+    ].join("\n");
+
+    const result = parseTranscriptText(text);
+    const count = (gradeLevel: number, semester: number) =>
+      result.records.filter((r) => r.gradeLevel === gradeLevel && r.semester === semester).length;
+
+    expect(count(1, 1)).toBe(2);
+    expect(count(1, 2)).toBe(2);
+    expect(count(2, 1)).toBe(2);
+    expect(count(2, 2)).toBe(2);
+    expect(count(3, 1)).toBe(1);
+    expect(result.warnings.some((w) => w.includes("성적이 인식되지 않았습니다"))).toBe(false);
+  });
+
 });

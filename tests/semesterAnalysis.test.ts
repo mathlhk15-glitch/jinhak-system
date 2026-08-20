@@ -39,4 +39,15 @@ describe("semester combination analysis", () => {
       expect(total.combinations.kme.average.value).toBeCloseTo(2, 8);
     }
   });
+
+  it("일부 학기만 있으면 전체 라벨에 실제 인식 학기 수를 표시한다", () => {
+    const records = [
+      rec("국어11", 1, 1, "국어", 4, 2),
+      rec("국어21", 2, 1, "국어", 4, 2),
+      rec("국어31", 3, 1, "국어", 4, 2),
+    ];
+    const matrix = computeSemesterCombinationMatrix(records, REFERENCE_COMBINATIONS);
+    expect(matrix.at(-1)?.label).toBe("전체(3/5학기 인식 · 단위수 가중)");
+  });
+
 });

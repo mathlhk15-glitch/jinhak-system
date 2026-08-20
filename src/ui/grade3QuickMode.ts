@@ -203,7 +203,7 @@ function renderMasthead(): HTMLElement {
       el("div", { class: "eyebrow" }, ["CHANGWON GYEONGIL H.S."]),
       el("h1", {}, ["진학설계 시스템"]),
       el("div", { class: "subtitle" }, ["1·2·3학년 수시상담 · 내신 통합분석"]),
-      el("div", { class: "version-badge" }, ["v1.2.0 · PDF/OCR · 5→9등급 환산 · 학기별 분석"]),
+      el("div", { class: "version-badge" }, ["v1.2.1 · PDF/OCR · 학기 인식 보정 · 5→9등급 환산"]),
     ]),
     el("div", { class: "seal" }, ["진학 상담"]),
   ]);
@@ -910,13 +910,18 @@ function renderGradeSummaryInto(container: HTMLElement): void {
   container.appendChild(table);
 
   const semesterAware = getSemesterAwareRecords(records);
+  const matrix = computeSemesterCombinationMatrix(records, REFERENCE_COMBINATIONS);
+  const semesterRows = matrix.filter((row) => row.semester != null);
+  const recognizedSemesterCount = semesterRows.filter((row) => row.records.length > 0).length;
+  const missingSemesterLabels = semesterRows
+    .filter((row) => row.records.length === 0)
+    .map((row) => row.label);
   container.appendChild(
     el("h3", { class: "analysis-subtitle" }, [
       "학기별 교과 조합 가중평균 ",
-      el("span", { class: "feature-badge" }, ["5개 학기"]),
+      el("span", { class: "feature-badge" }, [`${recognizedSemesterCount}/5학기 인식`]),
     ])
   );
-  const matrix = computeSemesterCombinationMatrix(records, REFERENCE_COMBINATIONS);
   const matrixTable = el("table", { class: "ledger semester-matrix" });
   const matrixHead = el("thead", {}, [
     el("tr", {}, [
@@ -939,10 +944,18 @@ function renderGradeSummaryInto(container: HTMLElement): void {
   }
   matrixTable.append(matrixHead, matrixBody);
   container.appendChild(matrixTable);
+  if (missingSemesterLabels.length > 0 && semesterAware.length > 0) {
+    container.appendChild(
+      el("p", { class: "achievement-note warning-note" }, [
+        `⚠ 현재 ${recognizedSemesterCount}/5학기만 인식되었습니다. 누락: ${missingSemesterLabels.join(", ")}. ` +
+          "PDF/사진 자동추출 검토표에서 학년·학기 배정을 확인하거나 해당 학기 자료를 다시 추가해 주세요.",
+      ])
+    );
+  }
   container.appendChild(
     el("p", { class: "achievement-note" }, [
       semesterAware.length > 0
-        ? "전체 값은 5개 학기 평균을 단순평균한 값이 아니라, 5개 학기의 모든 석차등급 산출과목을 합쳐 Σ(단위수×등급)÷Σ단위수로 다시 계산한 값입니다. 5등급제 결과는 제공된 Excel 환산표의 근사 VLOOKUP 방식으로 9등급 참고값을 함께 표시합니다."
+        ? "전체 값은 인식된 모든 석차등급 산출과목을 합쳐 Σ(단위수×등급)÷Σ단위수로 다시 계산합니다. 5개 학기가 모두 인식된 경우에만 ‘5개 학기’ 전체값으로 볼 수 있습니다. 5등급제 결과는 제공된 Excel 환산표의 근사 VLOOKUP 방식으로 9등급 참고값을 함께 표시합니다."
         : "아직 학기 정보가 있는 성적이 없습니다. PDF/사진에서 성적을 불러오거나 수동 입력행의 ‘이수 학기’를 선택하면 위 표가 자동으로 채워집니다.",
     ])
   );
