@@ -695,7 +695,7 @@ table.ledger tr.combo-row td {
 }
 
 
-/* v1.1.1 - 새 기능을 메인 화면에서 즉시 구분할 수 있도록 표시 */
+/* v1.1.2 - 새 기능을 메인 화면에서 즉시 구분할 수 있도록 표시 */
 .version-badge {
   display: inline-flex;
   margin-top: 8px;

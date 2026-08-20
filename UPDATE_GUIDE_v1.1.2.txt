@@ -1,0 +1,15 @@
+창원경일고 진학설계 시스템 v1.1.2
+
+이번 버전은 v1.1.1 GitHub Actions typecheck 실패를 수정한 안정화 버전입니다.
+
+핵심 수정
+1) src/engines/semesterAnalysis.ts의 rows 배열 타입을 SemesterCombinationResult[]로 명시
+2) 전체 행의 semester: null이 SemesterDef 타입과 충돌하던 TS2322 오류 해결
+3) 기존 PDF/OCR 자동입력 및 5개 학기 조합별 단위수 가중평균 기능은 그대로 유지
+
+GitHub 적용 방법
+- 이 ZIP의 내용을 기존 jinhak-system 저장소 루트에 덮어씁니다.
+- Commit changes를 눌러 main 브랜치에 커밋합니다.
+- GitHub Actions의 Deploy to GitHub Pages가 자동 실행됩니다.
+- build와 deploy가 모두 초록 체크인지 확인합니다.
+- 배포 후 Ctrl+F5 또는 시크릿 창에서 상단 v1.1.2 배지를 확인합니다.

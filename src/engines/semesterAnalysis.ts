@@ -40,7 +40,7 @@ export function computeSemesterCombinationMatrix(
 ): SemesterCombinationResult[] {
   const semesterAware = getSemesterAwareRecords(records);
 
-  const rows = COUNSELING_SEMESTERS.map((semester) => {
+  const rows: SemesterCombinationResult[] = COUNSELING_SEMESTERS.map((semester): SemesterCombinationResult => {
     const semesterRecords = semesterAware.filter(
       (r) => r.gradeLevel === semester.gradeLevel && r.semester === semester.semester
     );

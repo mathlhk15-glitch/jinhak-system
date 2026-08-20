@@ -194,7 +194,7 @@ function renderMasthead(): HTMLElement {
       el("div", { class: "eyebrow" }, ["CHANGWON GYEONGIL H.S."]),
       el("h1", {}, ["진학설계 시스템"]),
       el("div", { class: "subtitle" }, ["3학년 수시상담 · 빠른입력 모드"]),
-      el("div", { class: "version-badge" }, ["v1.1.1 · PDF/OCR · 학기별 분석"]),
+      el("div", { class: "version-badge" }, ["v1.1.2 · PDF/OCR · 학기별 분석"]),
     ]),
     el("div", { class: "seal" }, ["진학 상담"]),
   ]);
