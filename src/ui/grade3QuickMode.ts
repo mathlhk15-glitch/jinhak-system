@@ -194,6 +194,7 @@ function renderMasthead(): HTMLElement {
       el("div", { class: "eyebrow" }, ["CHANGWON GYEONGIL H.S."]),
       el("h1", {}, ["진학설계 시스템"]),
       el("div", { class: "subtitle" }, ["3학년 수시상담 · 빠른입력 모드"]),
+      el("div", { class: "version-badge" }, ["v1.1.1 · PDF/OCR · 학기별 분석"]),
     ]),
     el("div", { class: "seal" }, ["진학 상담"]),
   ]);
@@ -268,7 +269,11 @@ function recordDuplicateKey(r: AcademicRecord): string {
 function renderImportSection(): HTMLElement {
   const section = el("section", { class: "card import-card" });
   section.append(
-    el("h2", {}, [el("span", { class: "section-number" }, ["00"]), "학생부·성적표 자동 불러오기"]),
+    el("h2", {}, [
+      el("span", { class: "section-number" }, ["00"]),
+      "학생부·성적표 자동 불러오기 ",
+      el("span", { class: "feature-badge" }, ["NEW"]),
+    ]),
     el("p", { class: "card-desc" }, [
       "학생부 PDF 또는 성적표 이미지를 선택하거나 아래 영역에 끌어놓으세요. 캡처한 성적표 이미지는 이 페이지에서 Ctrl+V로 바로 붙여넣을 수 있습니다. ",
       "PDF는 텍스트를 우선 읽고, 스캔 PDF·사진은 브라우저 OCR로 처리합니다. 파일 내용은 성적 추출을 위해 외부 서버로 업로드하지 않지만 OCR/PDF 라이브러리와 한글 인식모델은 CDN에서 내려받습니다. ",
@@ -775,37 +780,42 @@ function renderGradeSummaryInto(container: HTMLElement): void {
   container.appendChild(table);
 
   const semesterAware = getSemesterAwareRecords(records);
-  if (semesterAware.length > 0) {
-    container.appendChild(el("h3", { class: "analysis-subtitle" }, ["학기별 교과 조합 가중평균"]));
-    const matrix = computeSemesterCombinationMatrix(records, REFERENCE_COMBINATIONS);
-    const matrixTable = el("table", { class: "ledger semester-matrix" });
-    const matrixHead = el("thead", {}, [
-      el("tr", {}, [
-        el("th", {}, ["학기"]),
-        ...REFERENCE_COMBINATIONS.map((c) => el("th", { class: "num" }, [c.label])),
-        el("th", { class: "num" }, ["전교과"]),
-      ]),
-    ]);
-    const matrixBody = el("tbody", {});
-    for (const row of matrix) {
-      matrixBody.appendChild(
-        el("tr", row.semester == null ? { class: "combo-row total-row" } : {}, [
-          el("td", {}, [row.label]),
-          ...REFERENCE_COMBINATIONS.map((c) =>
-            el("td", { class: "num" }, [formatGrade(row.combinations[c.id].average)])
-          ),
-          el("td", { class: "num" }, [formatGrade(row.allSubjects.average)]),
-        ])
-      );
-    }
-    matrixTable.append(matrixHead, matrixBody);
-    container.appendChild(matrixTable);
-    container.appendChild(
-      el("p", { class: "achievement-note" }, [
-        "전체 값은 5개 학기 평균을 단순평균한 값이 아니라, 5개 학기의 모든 석차등급 산출과목을 합쳐 Σ(단위수×등급)÷Σ단위수로 다시 계산한 값입니다.",
+  container.appendChild(
+    el("h3", { class: "analysis-subtitle" }, [
+      "학기별 교과 조합 가중평균 ",
+      el("span", { class: "feature-badge" }, ["5개 학기"]),
+    ])
+  );
+  const matrix = computeSemesterCombinationMatrix(records, REFERENCE_COMBINATIONS);
+  const matrixTable = el("table", { class: "ledger semester-matrix" });
+  const matrixHead = el("thead", {}, [
+    el("tr", {}, [
+      el("th", {}, ["학기"]),
+      ...REFERENCE_COMBINATIONS.map((c) => el("th", { class: "num" }, [c.label])),
+      el("th", { class: "num" }, ["전교과"]),
+    ]),
+  ]);
+  const matrixBody = el("tbody", {});
+  for (const row of matrix) {
+    matrixBody.appendChild(
+      el("tr", row.semester == null ? { class: "combo-row total-row" } : {}, [
+        el("td", {}, [row.label]),
+        ...REFERENCE_COMBINATIONS.map((c) =>
+          el("td", { class: "num" }, [formatGrade(row.combinations[c.id].average)])
+        ),
+        el("td", { class: "num" }, [formatGrade(row.allSubjects.average)]),
       ])
     );
   }
+  matrixTable.append(matrixHead, matrixBody);
+  container.appendChild(matrixTable);
+  container.appendChild(
+    el("p", { class: "achievement-note" }, [
+      semesterAware.length > 0
+        ? "전체 값은 5개 학기 평균을 단순평균한 값이 아니라, 5개 학기의 모든 석차등급 산출과목을 합쳐 Σ(단위수×등급)÷Σ단위수로 다시 계산한 값입니다."
+        : "아직 학기 정보가 있는 성적이 없습니다. PDF/사진에서 성적을 불러오거나 수동 입력행의 ‘이수 학기’를 선택하면 위 표가 자동으로 채워집니다.",
+    ])
+  );
 
   if (comboAll.mixedGradeScaleWarning) {
     container.appendChild(
