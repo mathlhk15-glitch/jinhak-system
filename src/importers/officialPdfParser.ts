@@ -251,7 +251,6 @@ function buildRowRecord(
   const subjectCourseBoundary = (header.subjectX + header.courseX) / 2;
   const semesterSubjectBoundary = (header.semesterX + header.subjectX) / 2;
   const courseCreditBoundary = header.creditX - 5;
-  const creditScoreBoundary = (header.creditX + header.scoreX) / 2;
   const achievementRankBoundary = header.rankX != null
     ? (header.achievementX + header.rankX) / 2
     : (header.achievementX + (header.noteX ?? page.width - 50)) / 2;
@@ -332,7 +331,6 @@ function parseTable(
   if (regionEnd <= regionStart) return [];
 
   const semesterSubjectBoundary = (header.semesterX + header.subjectX) / 2;
-  const subjectCourseBoundary = (header.subjectX + header.courseX) / 2;
   const courseCreditBoundary = header.creditX - 5;
   const creditScoreBoundary = (header.creditX + header.scoreX) / 2;
 
