@@ -584,3 +584,112 @@ table.ledger tr.combo-row td {
     font-size: 12px;
   }
 }
+
+/* ── 학생부/PDF/이미지 자동 불러오기 ───────────────────── */
+.import-card {
+  border-style: solid;
+}
+.import-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 12px 0;
+}
+.import-drop-zone {
+  border: 1.5px dashed #9b927c;
+  border-radius: 12px;
+  min-height: 118px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  background: rgba(249, 247, 241, 0.72);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.import-drop-zone.drag-over,
+.import-drop-zone:focus {
+  outline: none;
+  background: #f3efe4;
+  border-color: #77603b;
+  transform: translateY(-1px);
+}
+.drop-icon {
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  color: #836a3e;
+  border: 1px solid #a99164;
+  border-radius: 5px;
+  padding: 3px 7px;
+}
+.import-drop-zone span {
+  color: #66707a;
+  font-size: 13px;
+}
+.import-progress {
+  min-height: 22px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: #476f68;
+}
+.import-warning {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-left: 3px solid #a57a30;
+  background: #fbf6e8;
+  font-size: 13px;
+}
+.import-review {
+  margin-top: 12px;
+}
+.import-review input,
+.import-review select {
+  min-width: 72px;
+  max-width: 180px;
+}
+.import-review input[type="text"] {
+  min-width: 150px;
+}
+.review-low-confidence td {
+  background: #fff7e6;
+}
+.import-apply-row {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.analysis-subtitle {
+  margin: 20px 0 8px;
+  font-size: 16px;
+}
+.semester-matrix th,
+.semester-matrix td {
+  white-space: nowrap;
+}
+.semester-matrix .total-row td {
+  border-top: 2px solid #7f7661;
+}
+.course-name-input {
+  min-width: 150px;
+}
+.entry-row {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  .import-apply-row {
+    justify-content: stretch;
+  }
+  .import-apply-row > * {
+    width: 100%;
+  }
+  .entry-row .course-name-input {
+    min-width: 120px;
+    flex: 1 1 140px;
+  }
+}

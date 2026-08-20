@@ -26,7 +26,7 @@ export function splitRecordsBySourceMode(records: AcademicRecord[]): SplitRecord
     if (rec.sourceMode === "precise") {
       preserved.push(rec);
     } else {
-      // sourceMode가 "quickAggregate"이거나, sourceMode 필드가 아예 없는 구버전 데이터
+      // sourceMode가 "quickAggregate"/"quickSemester"이거나, sourceMode 필드가 아예 없는 구버전 데이터
       // (이 필드가 도입되기 전 저장된 파일은 전부 빠른모드 산출물이었으므로 editable이 맞다).
       editable.push(rec);
     }

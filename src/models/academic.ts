@@ -81,7 +81,7 @@ export interface AcademicRecord {
    * gradeLevel/semester 값을 실제 이수 시점처럼 오인하지 않도록 표시해 둔다.
    * 정밀입력(Phase 3, 학교 편제 연동)에서 만든 레코드는 이 필드가 없거나 "precise"다.
    */
-  sourceMode?: "quickAggregate" | "precise";
+  sourceMode?: "quickAggregate" | "quickSemester" | "precise";
 }
 
 /** 모의고사(수능) 기록. 시계열 확장을 위해 examLabel로 회차 구분 */

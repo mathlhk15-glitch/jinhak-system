@@ -72,7 +72,10 @@ function normalizeAcademicRecord(r: unknown, index: number): AcademicRecord | nu
     courseAverage: typeof rec.courseAverage === "number" ? rec.courseAverage : undefined,
     enrollmentCount: typeof rec.enrollmentCount === "number" ? rec.enrollmentCount : undefined,
     memo: typeof rec.memo === "string" ? rec.memo : undefined,
-    sourceMode: rec.sourceMode === "quickAggregate" || rec.sourceMode === "precise" ? rec.sourceMode : undefined,
+    sourceMode:
+      rec.sourceMode === "quickAggregate" || rec.sourceMode === "quickSemester" || rec.sourceMode === "precise"
+        ? rec.sourceMode
+        : undefined,
   };
 }
 

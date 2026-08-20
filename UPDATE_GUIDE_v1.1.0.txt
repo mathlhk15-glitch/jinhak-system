@@ -1,0 +1,27 @@
+창원경일고 진학설계 시스템 v1.1.0 업데이트 안내
+
+1. 기존 GitHub 저장소: mathlhk15-glitch/jinhak-system
+2. 이 ZIP을 압축 해제합니다.
+3. 저장소의 같은 경로에 파일을 덮어씁니다.
+4. 새로 추가되는 폴더/파일:
+   - src/importers/documentImporter.ts
+   - src/importers/transcriptParser.ts
+   - src/engines/semesterAnalysis.ts
+   - tests/semesterAnalysis.test.ts
+   - tests/transcriptParser.test.ts
+5. 기존 수정 파일:
+   - src/ui/grade3QuickMode.ts
+   - src/style.css
+   - src/models/academic.ts
+   - src/models/subjectCombinations.ts
+   - src/storage/normalize.ts
+   - src/engines/recordReconciliation.ts
+   - src/engines/gradeEngine.ts
+   - src/export/excelExporter.ts
+   - README.md
+   - package.json
+   - package-lock.json
+6. main 브랜치에 Commit하면 기존 GitHub Actions가 자동으로 typecheck/test/build/Pages 배포를 수행합니다.
+7. 배포 후 브라우저 캐시 때문에 이전 화면이 보이면 Ctrl+F5 또는 시크릿 창으로 확인합니다.
+
+주의: PDF/OCR 라이브러리는 런타임에 CDN에서 내려받습니다. 학생 PDF/이미지 자체는 OCR 서버로 업로드하도록 구현하지 않았습니다.

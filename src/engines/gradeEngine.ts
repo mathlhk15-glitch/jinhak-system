@@ -104,7 +104,7 @@ export function computeWeightedAverage(records: AcademicRecord[]): WeightedAvera
     const check = isCalculableRankGradeCourse(r);
     if (check.ok) {
       rankGradeCourses.push(r);
-    } else {
+    } else if ("reason" in check) {
       invalidCourses.push({ courseName: r.courseName, reason: check.reason });
     }
   }

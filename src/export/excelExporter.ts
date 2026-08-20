@@ -13,6 +13,7 @@
 import type ExcelJS from "exceljs";
 import type { StudentDataFile } from "../models/academic";
 import { REFERENCE_COMBINATIONS } from "../models/subjectCombinations";
+import { computeSemesterCombinationMatrix, getSemesterAwareRecords } from "../engines/semesterAnalysis";
 import { computeBySubjectGroup, computeCombination, computeWeightedAverage, getActiveGradeScale, isEmpty } from "../engines/gradeEngine";
 import type { ComputedValue } from "../engines/gradeEngine";
 import { prepareForExport } from "../storage/jsonBackup";
@@ -231,7 +232,8 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
     // 상담교사가 Excel만 보고도 자료 출처를 구분할 수 있도록 명시적인 열을 둔다.
     const sourceModeLabel: Record<string, string> = {
       quickAggregate: "빠른입력 누적",
-      precise: "정밀입력",
+      quickSemester: "학기지정 입력",
+      precise: "정밀입력/자동추출",
     };
     for (const rec of data.academicRecords) {
       const row = ws.addRow({
@@ -303,6 +305,36 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
       styleDataRow(row);
       r += 1;
     }
+
+    const semesterAware = getSemesterAwareRecords(data.academicRecords);
+    if (semesterAware.length > 0) {
+      r += 2;
+      ws.getCell(`A${r}`).value = "학기별 교과 조합 가중평균";
+      ws.getCell(`A${r}`).font = { bold: true, size: 12 };
+      r += 1;
+      const semesterHeader = ws.getRow(r);
+      semesterHeader.values = ["학기", ...REFERENCE_COMBINATIONS.map((c) => c.label), "전교과"];
+      styleHeaderRow(semesterHeader);
+      r += 1;
+      const matrix = computeSemesterCombinationMatrix(data.academicRecords, REFERENCE_COMBINATIONS);
+      for (const item of matrix) {
+        const row = ws.getRow(r);
+        row.getCell(1).value = item.label;
+        let col = 2;
+        for (const combo of REFERENCE_COMBINATIONS) {
+          writeGradeCell(row.getCell(col), item.combinations[combo.id].average);
+          col += 1;
+        }
+        writeGradeCell(row.getCell(col), item.allSubjects.average);
+        styleDataRow(row);
+        if (item.semester == null) row.font = { bold: true };
+        r += 1;
+      }
+      ws.getCell(`A${r}`).value = "※ 전체는 학기 평균의 단순평균이 아니라, 5개 학기 전체 과목을 합쳐 단위수 가중평균으로 다시 계산한 값입니다.";
+      ws.getCell(`A${r}`).font = { italic: true, size: 9, color: { argb: "FF666666" } };
+      r += 1;
+    }
+
     r += 1;
     ws.getCell(`A${r}`).value =
       `등급체계: ${activeGradeScale != null ? `${activeGradeScale}등급제 기준` : "혼재 또는 판정 불가"}. 성취평가 과목은 위 모든 가중평균 계산에서 제외되었습니다. ` +
