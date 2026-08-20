@@ -26,7 +26,7 @@ const SUBJECT_KEYWORDS: Array<[SubjectGroup, RegExp]> = [
   // 오인하던 부분을 막기 위해 국어/영어 등의 단순 부분문자열 매칭을 사용하지 않는다.
   ["국어", /^(?:국어|공통국어|문학|독서|화법|작문|언어와\s*매체|심화\s*국어|고전읽기)/],
   ["수학", /^(?:수학|공통수학|미적분|확률과\s*통계|기하|경제수학|인공지능\s*수학|심화\s*수학)/],
-  ["영어", /^(?:영어|English|영미|영어권|심화\s*영어)/i],
+  ["영어", /^(?:영어|공통영어|English|영미|영어권|심화\s*영어)/i],
   ["한국사", /^한국사/],
   ["사회", /^(?:통합사회|사회문화|사회·문화|정치와\s*법|법과\s*정치|경제|한국지리|세계지리|생활과\s*윤리|윤리와\s*사상|동아시아사|세계사|여행지리|사회문제)/],
   ["과학", /^(?:통합과학|과학탐구|물리|화학|생명과학|지구과학|과학사|융합과학|생활과\s*과학)/],
@@ -116,9 +116,16 @@ function parseAchievement(token: string): AchievementLevel | undefined {
   return m ? (m[1] as AchievementLevel) : undefined;
 }
 
-export function inferSubjectGroup(courseName: string, _fullLine = ""): SubjectGroup {
+export function inferSubjectGroup(courseName: string, fullLine = ""): SubjectGroup {
   const normalized = courseName.replace(/\s+/g, " ").trim();
   for (const [group, re] of SUBJECT_KEYWORDS) if (re.test(normalized)) return group;
+
+  // 교과 열과 과목 열이 함께 들어온 일반 텍스트 파서에서는 교과명이
+  // cleanCourseName()에서 제거될 수 있다. 이 경우 원래 이름 토큰의 맨 앞을
+  // 한 번 더 확인한다. 정규식은 ^ 앵커를 사용하므로 중국어/외국어 안의
+  // "국어" 같은 부분문자열은 국어 교과로 오인하지 않는다.
+  const normalizedFull = fullLine.replace(/\s+/g, " ").trim();
+  for (const [group, re] of SUBJECT_KEYWORDS) if (re.test(normalizedFull)) return group;
   return "기타";
 }
 
@@ -176,7 +183,7 @@ function parseRow(
   const courseName = cleanCourseName(rawNameTokens);
   if (!courseName) return undefined;
 
-  const subjectGroup = inferSubjectGroup(courseName, line);
+  const subjectGroup = inferSubjectGroup(courseName, rawNameTokens.join(" "));
   const achievement = body.map(parseAchievement).find((x): x is AchievementLevel => x != null);
   const rankCandidate = [...numericTokens].reverse().find(
     (x) => x.idx !== creditCandidate.idx && Number.isInteger(x.value) && x.value >= 1 && x.value <= 9

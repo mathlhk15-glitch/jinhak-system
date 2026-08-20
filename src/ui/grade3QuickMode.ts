@@ -203,7 +203,7 @@ function renderMasthead(): HTMLElement {
       el("div", { class: "eyebrow" }, ["CHANGWON GYEONGIL H.S."]),
       el("h1", {}, ["학생부 성적분석 시스템"]),
       el("div", { class: "subtitle" }, ["1·2·3학년 학생부 성적 · 단위수 가중평균 · 5→9등급 참고환산"]),
-      el("div", { class: "version-badge" }, ["v1.4.1 · 공식 학생부 표 정밀인식 · 5개 학기 검증"]),
+      el("div", { class: "version-badge" }, ["v1.4.2 · 공식 학생부 표 정밀인식 · 5개 학기 검증"]),
     ]),
   ]);
 }
