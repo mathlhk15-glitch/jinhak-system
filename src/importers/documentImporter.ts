@@ -21,8 +21,19 @@ async function loadTesseract(): Promise<any> {
   return await import(/* @vite-ignore */ TESSERACT_URL);
 }
 
-function groupTextItemsIntoLines(items: any[]): string[] {
-  const rows: Array<{ y: number; items: Array<{ x: number; text: string }> }> = [];
+interface PositionedTextItem { x: number; text: string; }
+interface PositionedTextLine { y: number; items: PositionedTextItem[]; text: string; }
+
+/**
+ * 학교생활기록부의 학기 셀은 여러 과목 행을 세로로 병합(rowspan)한다.
+ * PDF 텍스트 추출 순서만 믿으면 병합 셀의 1/2가 과목 행들 사이에 끼어 나오므로
+ * 2학기 과목이 1학기로 잘못 붙는 문제가 생긴다.
+ *
+ * 여기서는 PDF.js가 주는 좌표를 보존한 뒤, 학기 열의 단독 숫자(1/2) 위치와
+ * 각 성적 행의 y 좌표를 비교하여 가장 가까운 학기 셀을 명시적으로 주입한다.
+ */
+function groupTextItemsIntoLines(items: any[]): PositionedTextLine[] {
+  const rows: Array<{ y: number; items: PositionedTextItem[] }> = [];
   for (const item of items) {
     const text = String(item.str ?? "").trim();
     if (!text) continue;
@@ -33,7 +44,65 @@ function groupTextItemsIntoLines(items: any[]): string[] {
     row.items.push({ x, text });
   }
   rows.sort((a, b) => b.y - a.y);
-  return rows.map((row) => row.items.sort((a, b) => a.x - b.x).map((x) => x.text).join("\t"));
+  return rows.map((row) => {
+    const sorted = row.items.sort((a, b) => a.x - b.x);
+    return { y: row.y, items: sorted, text: sorted.map((x) => x.text).join("\t") };
+  });
+}
+
+function looksLikeTranscriptDataRow(line: PositionedTextLine): boolean {
+  const tokens = line.items.map((x) => x.text.trim()).filter(Boolean);
+  if (tokens.length < 3) return false;
+  if (tokens.some((t) => /20\d{2}[.년/-]/.test(t))) return false;
+  if (tokens.some((t) => /이수학점|합계|수강자수|석차등급|학점수|단위수/.test(t))) return false;
+
+  for (let i = 0; i < tokens.length; i++) {
+    const m = tokens[i].match(/^(\d{1,2})(?:학점|단위)?$/);
+    if (!m) continue;
+    const n = Number(m[1]);
+    if (n < 1 || n > 20) continue;
+    const after = tokens.slice(i + 1);
+    const hasEvaluation = after.some((t) =>
+      /^[ABCDE](?:\(|$)/.test(t) || /^[1-9]$/.test(t) || /^[PF]$/.test(t)
+    );
+    if (hasEvaluation) return true;
+  }
+  return false;
+}
+
+export function injectSemesterByGeometry(lines: PositionedTextLine[]): string[] {
+  // 병합된 '학기' 열은 대부분 페이지 왼쪽에 단독 1/2로 존재한다.
+  // x 임계값은 특정 학교 양식 한 곳에만 고정하지 않도록 충분히 넓게 둔다.
+  const semesterMarkers = lines
+    .flatMap((line) =>
+      line.items
+        .filter((item) => /^[12]$/.test(item.text) && item.x < 110)
+        .map((item) => ({ y: line.y, semester: Number(item.text) as 1 | 2 }))
+    )
+    .sort((a, b) => b.y - a.y);
+
+  if (semesterMarkers.length === 0) return lines.map((line) => line.text);
+
+  return lines.map((line) => {
+    if (!looksLikeTranscriptDataRow(line)) return line.text;
+
+    // PDF.js 좌표계의 방향과 무관하게 절대거리로 판단한다.
+    // 정확히 중간이면 문서 진행 방향상 뒤의 학기(통상 2학기)를 선택한다.
+    let best = semesterMarkers[0];
+    let bestDistance = Math.abs(line.y - best.y);
+    for (let i = 1; i < semesterMarkers.length; i++) {
+      const marker = semesterMarkers[i];
+      const distance = Math.abs(line.y - marker.y);
+      // 병합 셀 중심의 정확한 중간점과 새 학기 첫 과목 baseline이 거의 겹치는
+      // 실제 NEIS PDF가 있다. 8px 이내의 경계 영역은 문서 진행 방향상 뒤의
+      // 학기 마커를 선택해 첫 2학기 과목이 1학기로 붙는 현상을 막는다.
+      if (distance <= bestDistance + 8) {
+        best = marker;
+        bestDistance = distance;
+      }
+    }
+    return `[[SEM:${best.semester}]]\t${line.text}`;
+  });
 }
 
 async function extractPdfText(file: File, onProgress?: (p: ImportProgress) => void): Promise<{ pdf: any; text: string }> {
@@ -45,7 +114,7 @@ async function extractPdfText(file: File, onProgress?: (p: ImportProgress) => vo
     onProgress?.({ stage: `PDF 텍스트 읽는 중 (${pageNo}/${pdf.numPages})`, percent: Math.round((pageNo / pdf.numPages) * 40) });
     const page = await pdf.getPage(pageNo);
     const content = await page.getTextContent();
-    pages.push(groupTextItemsIntoLines(content.items ?? []).join("\n"));
+    pages.push(injectSemesterByGeometry(groupTextItemsIntoLines(content.items ?? [])).join("\n"));
   }
   return { pdf, text: pages.join("\n") };
 }

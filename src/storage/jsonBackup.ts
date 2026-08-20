@@ -40,7 +40,7 @@ export function downloadJsonFile(data: StudentDataFile, filename?: string): void
   const a = document.createElement("a");
   const namePart = exportable.profile.anonymized ? "익명" : exportable.profile.name || "학생";
   a.href = url;
-  a.download = filename ?? `${namePart}_진학설계_${dateStamp()}.json`;
+  a.download = filename ?? `${namePart}_학생부내신분석_${dateStamp()}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();

@@ -67,7 +67,7 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
   // ExcelJS는 번들이 크므로(약 900KB) "Excel 생성" 버튼을 누를 때만 동적으로 불러온다.
   const { default: ExcelJSModule } = await import("exceljs");
   const wb = new ExcelJSModule.Workbook();
-  wb.creator = "창원경일고 진학설계 시스템";
+  wb.creator = "창원경일고 학생부 내신분석 시스템";
   wb.created = new Date();
 
   const overall = computeBySubjectGroup(data.academicRecords);
@@ -89,7 +89,7 @@ export async function buildExcelWorkbook(rawData: StudentDataFile): Promise<Exce
 
     ws.mergeCells("A1:D1");
     const title = ws.getCell("A1");
-    title.value = "창원경일고 진학설계 — 상담 요약";
+    title.value = "창원경일고 학생부 내신분석 — 상담 요약";
     title.font = { size: 16, bold: true, color: { argb: "FF1F3B57" } };
     ws.getRow(1).height = 28;
 

@@ -141,7 +141,7 @@ export function mountApp(root: HTMLElement): void {
 
   root.appendChild(
     el("p", { class: "footer-note" }, [
-      "창원경일고 진학설계 시스템 · 성적 데이터는 서버로 전송되지 않고 이 기기와 내려받은 JSON 파일에만 저장됩니다.",
+      "창원경일고 학생부 내신분석 시스템 · 성적 데이터는 서버로 전송되지 않고 이 기기와 내려받은 JSON 파일에만 저장됩니다.",
     ])
   );
 }
@@ -201,11 +201,10 @@ function renderMasthead(): HTMLElement {
   return el("header", { class: "masthead" }, [
     el("div", { class: "masthead-titles" }, [
       el("div", { class: "eyebrow" }, ["CHANGWON GYEONGIL H.S."]),
-      el("h1", {}, ["진학설계 시스템"]),
-      el("div", { class: "subtitle" }, ["1·2·3학년 수시상담 · 내신 통합분석"]),
-      el("div", { class: "version-badge" }, ["v1.2.1 · PDF/OCR · 학기 인식 보정 · 5→9등급 환산"]),
+      el("h1", {}, ["학생부 내신분석 시스템"]),
+      el("div", { class: "subtitle" }, ["1·2·3학년 학생부 내신 · 단위수 가중 · 5→9등급 참고환산"]),
+      el("div", { class: "version-badge" }, ["v1.3.0 · 학생부 PDF 정밀인식 · 5개 학기 분석"]),
     ]),
-    el("div", { class: "seal" }, ["진학 상담"]),
   ]);
 }
 
@@ -390,7 +389,7 @@ function renderImportSection(): HTMLElement {
           el("th", {}, ["교과군"]),
           el("th", {}, ["과목명"]),
           el("th", { class: "num" }, ["단위"]),
-          el("th", {}, ["평가"]),
+          el("th", {}, ["평가방식"]),
           el("th", { class: "num" }, ["등급/성취"]),
           el("th", { class: "num" }, ["9등급 환산"]),
           el("th", { class: "num" }, ["확신도"]),
@@ -425,8 +424,8 @@ function renderImportSection(): HTMLElement {
 
       const evalSelect = el("select", {}) as HTMLSelectElement;
       evalSelect.append(
-        el("option", { value: "rankGrade" }, ["석차"]) as HTMLOptionElement,
-        el("option", { value: "achievement" }, ["성취"]) as HTMLOptionElement
+        el("option", { value: "rankGrade" }, ["등급"]) as HTMLOptionElement,
+        el("option", { value: "achievement" }, ["성취평가"]) as HTMLOptionElement
       );
       evalSelect.value = candidate.evaluationType;
       evalSelect.addEventListener("change", () => {
@@ -705,8 +704,8 @@ function renderEntryRow(subject: string, entry: QuickEntry): HTMLElement {
 
   const typeSelect = el("select", {}) as HTMLSelectElement;
   typeSelect.append(
-    el("option", { value: "rankGrade" }, ["석차"]) as HTMLOptionElement,
-    el("option", { value: "achievement" }, ["성취"]) as HTMLOptionElement
+    el("option", { value: "rankGrade" }, ["등급"]) as HTMLOptionElement,
+    el("option", { value: "achievement" }, ["성취평가"]) as HTMLOptionElement
   );
   typeSelect.value = entry.evaluationType;
   typeSelect.addEventListener("change", () => {
@@ -903,7 +902,7 @@ function renderGradeSummaryInto(container: HTMLElement): void {
     tbody.appendChild(buildLedgerRow(c.def.label, c.result.totalCredits, formatGrade(c.result.average), formatNineGradeEquivalent(c.result), buildEvidenceText(c.result), true));
   }
   tbody.appendChild(
-    buildLedgerRow("석차등급 산출과목 전교과", comboAll.totalCredits, formatGrade(comboAll.average), formatNineGradeEquivalent(comboAll), buildEvidenceText(comboAll), true)
+    buildLedgerRow("등급 산출과목 전교과", comboAll.totalCredits, formatGrade(comboAll.average), formatNineGradeEquivalent(comboAll), buildEvidenceText(comboAll), true)
   );
 
   table.appendChild(tbody);
@@ -1036,7 +1035,7 @@ function renderTargetSection(): HTMLElement {
   section.append(
     el("h2", {}, [el("span", { class: "section-number" }, ["02"]), "목표등급 역산"]),
     el("p", { class: "card-desc" }, [
-      "현재까지의 '석차등급 산출과목 전교과' 가중평균을 기준으로, 앞으로 남은 단위수 동안 어떤 평균을 받아야 목표에 도달하는지 계산합니다. ",
+      "현재까지의 '등급 산출과목 전교과' 가중평균을 기준으로, 앞으로 남은 단위수 동안 어떤 평균을 받아야 목표에 도달하는지 계산합니다. ",
       "등급은 숫자가 작을수록 좋은 성적입니다. 등급체계는 01번에 입력된 실제 성적을 기준으로 자동 판단합니다(상단의 '기본 등급체계' 선택과는 무관합니다).",
     ])
   );
