@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "0.9",
+  "academicRecords": [
+    {
+      "id": "a1",
+      "academicYear": 2025,
+      "gradeLevel": 1,
+      "semester": 1,
+      "subjectGroup": "국어",
+      "courseName": "공통국어1",
+      "credits": 4,
+      "grade": 2
+    },
+    {
+      "id": "a2",
+      "academicYear": 2025,
+      "gradeLevel": 1,
+      "semester": 1,
+      "subjectGroup": "수학",
+      "courseName": "공통수학1",
+      "credits": 4,
+      "grade": 1
+    },
+    {
+      "id": "a3",
+      "academicYear": 2025,
+      "gradeLevel": 1,
+      "semester": 1,
+      "subjectGroup": "영어",
+      "courseName": "공통영어1",
+      "credits": 3,
+      "grade": 2
+    }
+  ]
+}

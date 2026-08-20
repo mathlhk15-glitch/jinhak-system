@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "1.0",
+  "curriculumVersion": "2015",
+  "metadata": {
+    "createdAt": "2026-08-19T00:00:00.000Z",
+    "updatedAt": "2026-08-19T00:00:00.000Z"
+  },
+  "profile": {
+    "name": "홍길동",
+    "gradeLevel": 3
+  },
+  "academicRecords": [
+    {
+      "id": "rec_1",
+      "academicYear": 2026,
+      "gradeLevel": 3,
+      "semester": 1,
+      "subjectGroup": "국어",
+      "courseName": "국어 항목1",
+      "credits": 4,
+      "evaluationType": "rankGrade",
+      "gradeScale": 9,
+      "rankGrade": 1
+    },
+    {
+      "id": "rec_2",
+      "academicYear": 2026,
+      "gradeLevel": 3,
+      "semester": 1,
+      "subjectGroup": "수학",
+      "courseName": "수학 항목1",
+      "credits": 4,
+      "evaluationType": "rankGrade",
+      "gradeScale": 9,
+      "rankGrade": 2
+    },
+    {
+      "id": "rec_3",
+      "academicYear": 2026,
+      "gradeLevel": 3,
+      "semester": 1,
+      "subjectGroup": "영어",
+      "courseName": "영어 항목1",
+      "credits": 3,
+      "evaluationType": "rankGrade",
+      "gradeScale": 9,
+      "rankGrade": 2
+    },
+    {
+      "id": "rec_4",
+      "academicYear": 2026,
+      "gradeLevel": 3,
+      "semester": 1,
+      "subjectGroup": "사회",
+      "courseName": "진로선택 사회",
+      "credits": 3,
+      "evaluationType": "achievement",
+      "achievement": "A"
+    }
+  ],
+  "mockExams": [
+    {
+      "id": "mock_1",
+      "academicYear": 2026,
+      "examLabel": "9월",
+      "korean": {
+        "grade": 2
+      },
+      "math": {
+        "grade": 3
+      }
+    }
+  ],
+  "targets": [],
+  "applications": [
+    {
+      "id": "app_1",
+      "universityName": "경북대",
+      "majorName": "섬유시스템공학과",
+      "admissionType": "교과",
+      "reflectionRatio": "학생부80%+서류20%",
+      "reflectionSubjects": "국수영사과한",
+      "myConvertedGrade": 2.14,
+      "yearlyData": [
+        {
+          "year": 2025,
+          "recruitCount": 8,
+          "competitionRate": 18.38,
+          "cut70": 3.81,
+          "finalCut": 3.5
+        }
+      ],
+      "memo": "1차 상담 대상"
+    }
+  ],
+  "notes": "샘플 데이터입니다."
+}

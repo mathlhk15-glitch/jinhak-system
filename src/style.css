@@ -1,0 +1,586 @@
+/*
+  디자인 컨셉: "성적표 원장(元帳)" — 학교 생활기록부/성적표의 격식 있는 대장(臺帳) 느낌을
+  디지털로 옮긴다. 화려한 대시보드가 아니라, 신뢰감 있는 공문서형 레이아웃.
+
+  글꼴: 외부 CDN(Google Fonts 등)에 의존하지 않고 운영체제 기본 한글 글꼴만 사용한다.
+  (검수 지적: "서버로 전송되지 않는다"는 설명과 별개로, 외부 폰트 서버 요청 자체가
+  네트워크 차단 환경에서 불안정 요소가 될 수 있어 학교용 도구에는 시스템 폰트가 안전하다.)
+
+  팔레트
+    --paper:      #F7F5F0  (약간 따뜻한 종이색, 흔한 크림베이지보다 채도 낮춤)
+    --ink:        #1C2B39  (진한 남색 잉크)
+    --ink-soft:   #4A5A68
+    --rule:       #C9CDB8  (괘선 — 종이 위 연필/스탬프 톤)
+    --accent:     #8A6D3B  (관인/직인 느낌의 황동색 — 붉은 테라코타 계열 회피)
+    --accent-2:   #2F6F62  (합격/적정 신호용 짙은 청록)
+    --danger:     #A23B2E  (경고/불가능 신호)
+    --surface:    #FFFFFF
+*/
+
+:root {
+  --paper: #f7f5f0;
+  --ink: #1c2b39;
+  --ink-soft: #4a5a68;
+  --rule: #c9cdb8;
+  --accent: #8a6d3b;
+  --accent-2: #2f6f62;
+  --danger: #a23b2e;
+  --surface: #ffffff;
+
+  --font-display: "Nanum Myeongjo", "Batang", "Apple SD Gothic Neo", "Malgun Gothic", serif;
+  --font-body: "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "Menlo", "Consolas", "D2Coding", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-image: linear-gradient(180deg, #f9f8f3 0%, var(--paper) 240px);
+}
+
+#app {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 32px 20px 96px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── 헤더: 관인/직인 스타일 시그니처 ─────────────────────── */
+
+.masthead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 3px double var(--ink);
+  padding-bottom: 14px;
+  margin-bottom: 28px;
+}
+
+.masthead-titles .eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.masthead h1 {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.masthead .subtitle {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+
+.seal {
+  width: 64px;
+  height: 64px;
+  border: 2.5px solid var(--accent);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--accent);
+  transform: rotate(-3deg);
+  flex-shrink: 0;
+  line-height: 1.3;
+  text-align: center;
+  writing-mode: vertical-rl;
+  letter-spacing: 0.1em;
+}
+
+/* ── 학생 프로필 바 ───────────────────────────────────── */
+
+.profile-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  font-size: 13px;
+}
+
+.profile-bar label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-soft);
+}
+
+.profile-bar input[type="text"] {
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  width: 120px;
+}
+
+.profile-bar .save-indicator {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent-2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-2);
+}
+
+/* ── 섹션 카드 ────────────────────────────────────────── */
+
+section.card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 22px 24px;
+  margin-bottom: 22px;
+}
+
+.card h2 {
+  font-family: var(--font-display);
+  font-size: 17px;
+  margin: 0 0 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.card h2 .section-number {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.card .card-desc {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin: 0 0 16px;
+  line-height: 1.55;
+}
+
+/* ── 교과군 입력 테이블 ──────────────────────────────── */
+
+.subject-block {
+  border-top: 1px solid var(--rule);
+  padding: 14px 0;
+}
+.subject-block:first-of-type {
+  border-top: none;
+}
+
+.subject-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.subject-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  min-width: 64px;
+}
+
+.subject-result {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.subject-result .avg-value {
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.entry-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.entry-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.entry-row input {
+  width: 48px;
+  border: none;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-align: center;
+}
+
+.entry-row input:focus {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+.entry-row .unit-label {
+  font-size: 10px;
+  color: var(--ink-soft);
+}
+
+.entry-row .remove-btn {
+  border: none;
+  background: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px;
+}
+.entry-row .remove-btn:focus-visible {
+  outline: 2px solid var(--danger);
+}
+
+.add-entry-btn {
+  border: 1px dashed var(--rule);
+  background: none;
+  color: var(--ink-soft);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.add-entry-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.achievement-note {
+  font-size: 11.5px;
+  color: var(--accent);
+  margin-top: 4px;
+}
+
+/* ── 요약 표 ─────────────────────────────────────────── */
+
+table.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+/* 검수 지적: 열이 많은 표(대학조사 등)는 모바일 화면 밖으로 튀어나갈 수 있어
+   가로 스크롤 컨테이너로 감싼다. */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.table-scroll table.ledger {
+  min-width: 480px;
+}
+
+table.ledger th,
+table.ledger td {
+  border-bottom: 1px solid var(--rule);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+table.ledger th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  font-weight: 600;
+  border-bottom: 2px solid var(--ink);
+}
+
+table.ledger td.num,
+table.ledger th.num {
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+table.ledger td input {
+  width: 100%;
+  min-width: 56px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: right;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+table.ledger td input:hover {
+  border-color: var(--rule);
+}
+table.ledger td input:focus {
+  outline: none;
+  border-color: var(--accent-2);
+  background: var(--paper);
+}
+
+table.ledger tr.combo-row td {
+  font-weight: 700;
+  background: #f1efe6;
+}
+
+.info-toggle {
+  border: none;
+  background: none;
+  color: var(--accent-2);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+}
+
+.evidence-box {
+  font-size: 12px;
+  color: var(--ink-soft);
+  background: var(--paper);
+  border-left: 3px solid var(--accent-2);
+  padding: 8px 12px;
+  margin: 6px 0 0;
+  display: none;
+  white-space: pre-line;
+}
+.evidence-box.open {
+  display: block;
+}
+
+.empty-value {
+  color: #aaa;
+}
+
+/* ── 폼 요소 공통 ────────────────────────────────────── */
+
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.field input,
+.field select,
+.field textarea {
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 7px 9px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.field textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+.btn {
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: #fff;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn:hover {
+  background: #142230;
+}
+.btn.secondary {
+  background: var(--surface);
+  color: var(--ink);
+}
+.btn.secondary:hover {
+  background: var(--paper);
+}
+.btn.danger {
+  background: var(--surface);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.btn:focus-visible,
+.add-entry-btn:focus-visible,
+.info-toggle:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
+.action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  position: sticky;
+  bottom: 16px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 6px 24px rgba(28, 43, 57, 0.1);
+}
+
+.app-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.app-card {
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: var(--paper);
+}
+
+.app-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.app-card-head strong {
+  font-family: var(--font-display);
+  font-size: 14.5px;
+}
+
+.year-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  border-top: 1px dashed var(--rule);
+  padding-top: 8px;
+}
+
+.year-row input {
+  width: 64px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: center;
+}
+
+.badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+}
+
+.badge.achievable {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+.badge.impossible {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.badge.already_secured {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.toast {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 50;
+}
+.toast.show {
+  opacity: 1;
+}
+
+.footer-note {
+  text-align: center;
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 40px;
+}
+
+@media (max-width: 640px) {
+  .masthead {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .seal {
+    display: none;
+  }
+  table.ledger {
+    font-size: 12px;
+  }
+}
