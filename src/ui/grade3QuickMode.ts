@@ -141,7 +141,7 @@ export function mountApp(root: HTMLElement): void {
 
   root.appendChild(
     el("p", { class: "footer-note" }, [
-      "창원경일고 학생부 성적분석 시스템 · 성적 데이터는 서버로 전송되지 않고 이 기기와 내려받은 JSON 파일에만 저장됩니다.",
+      "창원경일고 생기부 성적분석 시스템 · 성적 데이터는 서버로 전송되지 않고 이 기기와 내려받은 JSON 파일에만 저장됩니다.",
     ])
   );
 }
@@ -321,7 +321,7 @@ function renderImportSection(): HTMLElement {
       el("span", { class: "feature-badge" }, ["NEW"]),
     ]),
     el("p", { class: "card-desc" }, [
-      "생부 PDF 또는 성적표 이미지를 여러 개 선택하거나 아래 영역에 한꺼번에 끌어놓으세요. 캡처한 성적표 이미지는 Ctrl+V로 여러 번 붙여넣을 수 있고, 이전 후보가 사라지지 않고 누적됩니다. ",
+      "생기부 PDF 또는 성적표 이미지를 여러 개 선택하거나 아래 영역에 한꺼번에 끌어놓으세요. 캡처한 성적표 이미지는 Ctrl+V로 여러 번 붙여넣을 수 있고, 이전 후보가 사라지지 않고 누적됩니다. ",
       "PDF는 텍스트를 우선 읽고, 스캔 PDF·사진은 브라우저 OCR로 처리합니다. 파일 내용은 성적 추출을 위해 외부 서버로 업로드하지 않지만 OCR/PDF 라이브러리와 한글 인식모델은 CDN에서 내려받습니다. ",
       "자동 인식은 틀릴 수 있으므로 반드시 아래 검토표를 확인한 뒤 반영하세요.",
     ])
@@ -343,7 +343,7 @@ function renderImportSection(): HTMLElement {
 
   const dropZone = el("div", { class: "import-drop-zone", tabindex: "0" }, [
     el("div", { class: "drop-icon" }, ["PDF / IMG"]),
-    el("strong", {}, ["학생부 PDF 또는 성적 사진 여러 장을 한꺼번에 드롭"]),
+    el("strong", {}, ["생기부 PDF 또는 성적 사진 여러 장을 한꺼번에 드롭"]),
     el("span", {}, ["또는 캡처 이미지를 Ctrl+V로 여러 번 붙여넣기 · 후보가 누적됩니다"]),
   ]);
   dropZone.addEventListener("dragover", (e) => {
