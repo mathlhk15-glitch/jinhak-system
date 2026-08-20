@@ -201,15 +201,15 @@ function renderMasthead(): HTMLElement {
   return el("header", { class: "masthead" }, [
     el("div", { class: "masthead-titles" }, [
       el("div", { class: "eyebrow" }, ["CHANGWON GYEONGIL H.S."]),
-      el("h1", {}, ["학생부 성적분석 시스템"]),
-      el("div", { class: "subtitle" }, ["1·2·3학년 학생부 성적 · 단위수 가중평균 · 5→9등급 참고환산"]),
-      el("div", { class: "version-badge" }, ["v1.4.2 · 공식 학생부 표 정밀인식 · 5개 학기 검증"]),
+      el("h1", {}, ["생기부 성적분석 시스템"]),
+      el("div", { class: "subtitle" }, ["1·2·3학년 생기부 성적 · 단위수 가중평균 · 5→9등급 참고환산"]),
+      el("div", { class: "version-badge" }, ["v1.4.2 · 공식 생기부 표 정밀인식 · 5개 학기 검증"]),
     ]),
   ]);
 }
 
 // ─────────────────────────────────────────────────────────
-// 학생부 PDF / 성적표 이미지 자동 불러오기
+// 생기부 PDF / 성적표 이미지 자동 불러오기
 // ─────────────────────────────────────────────────────────
 
 function enqueueTranscriptFiles(files: File[]): void {
@@ -317,11 +317,11 @@ function renderImportSection(): HTMLElement {
   section.append(
     el("h2", {}, [
       el("span", { class: "section-number" }, ["00"]),
-      "학생부·성적표 자동 불러오기 ",
+      "생기부·성적표 자동 불러오기 ",
       el("span", { class: "feature-badge" }, ["NEW"]),
     ]),
     el("p", { class: "card-desc" }, [
-      "학생부 PDF 또는 성적표 이미지를 여러 개 선택하거나 아래 영역에 한꺼번에 끌어놓으세요. 캡처한 성적표 이미지는 Ctrl+V로 여러 번 붙여넣을 수 있고, 이전 후보가 사라지지 않고 누적됩니다. ",
+      "생부 PDF 또는 성적표 이미지를 여러 개 선택하거나 아래 영역에 한꺼번에 끌어놓으세요. 캡처한 성적표 이미지는 Ctrl+V로 여러 번 붙여넣을 수 있고, 이전 후보가 사라지지 않고 누적됩니다. ",
       "PDF는 텍스트를 우선 읽고, 스캔 PDF·사진은 브라우저 OCR로 처리합니다. 파일 내용은 성적 추출을 위해 외부 서버로 업로드하지 않지만 OCR/PDF 라이브러리와 한글 인식모델은 CDN에서 내려받습니다. ",
       "자동 인식은 틀릴 수 있으므로 반드시 아래 검토표를 확인한 뒤 반영하세요.",
     ])
